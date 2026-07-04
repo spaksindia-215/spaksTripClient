@@ -37,7 +37,8 @@ function ConfirmationInner() {
     );
   }
 
-  const { hotel, room, checkIn, checkOut, nights, rooms, guests, contact, addOns, totalPrice, bookingReference, confirmedAt } = current;
+  const { hotel, room, checkIn, checkOut, nights, rooms, guests, contact, addOns, totalPrice, bookingReference, confirmedAt, preBook } = current;
+  const supplements = preBook?.supplements ?? room.supplements;
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-muted">
@@ -92,6 +93,32 @@ function ConfirmationInner() {
               </div>
             </div>
           </div>
+
+          {/* Supplements */}
+          {supplements && supplements.length > 0 && (
+            <div className="rounded-xl bg-orange-50 border border-orange-200 p-5 shadow-(--shadow-xs) mb-4">
+              <h2 className="text-[15px] font-bold text-orange-900 mb-3">Supplements</h2>
+              <div className="flex flex-col gap-2.5 mb-3">
+                {supplements.map((supplement, i) => (
+                  <div
+                    key={i}
+                    className="flex justify-between items-start gap-3 pb-2.5 border-b border-orange-200 last:pb-0 last:border-0"
+                  >
+                    <div className="flex-1">
+                      <p className="text-[12px] font-semibold text-orange-900">{supplement.description}</p>
+                      <p className="text-[11px] text-orange-800">{supplement.type}</p>
+                    </div>
+                    <p className="text-[12px] font-bold text-orange-900 whitespace-nowrap">
+                      {supplement.currency} {supplement.price != null ? supplement.price.toLocaleString() : "—"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-orange-800 leading-relaxed italic border-t border-orange-200 pt-2">
+                ⚠ These charges are collected directly at the hotel during check-in. Currency shown may differ from your booking currency.
+              </p>
+            </div>
+          )}
 
           {/* Guests */}
           <div className="rounded-xl bg-white border border-border-soft p-5 shadow-(--shadow-xs) mb-4">

@@ -1,7 +1,7 @@
 import "server-only";
 import { logRequest, logResponse, logError } from "../log";
 import { assertTboSuccess } from "../errors";
-import { basicAuthHeader } from "./hotelUtils";
+import { basicAuthHeader, mapSupplements, type TboSupplement } from "./hotelUtils";
 
 // Endpoint: POST https://hotelbe.tektravels.com/hotelservice.svc/rest/Getbookingdetail
 // Auth: Basic Auth — same agency credentials as Search / PreBook / Book.
@@ -100,7 +100,8 @@ interface TboBookingRoom {
   RoomPromotion?: string[];
   Amenities?: string[];
   Amenity?: string[];
-  Supplements?: unknown;
+  // Mandatory supplements (paid at hotel, may be in hotel's local currency)
+  Supplements?: TboSupplement[] | null;
   Inclusion?: string;
 }
 
@@ -222,6 +223,8 @@ export interface BookingRoom {
   lastCancellationDate?: string;
   roomPromotion?: string[];
   amenities: string[];
+  // Mandatory supplements (paid directly at hotel, may be in hotel's local currency)
+  supplements?: Array<{ index: string; type: string; description: string; price: number; currency: string }>;
   inclusion?: string;
   isPerStay?: boolean;
 }
@@ -401,6 +404,7 @@ function mapRoom(r: TboBookingRoom): BookingRoom {
     lastCancellationDate: r.LastCancellationDate,
     roomPromotion: (r.RoomPromotion ?? []).filter(Boolean),
     amenities,
+    supplements: r.Supplements ? mapSupplements(r.Supplements) : undefined,
     inclusion: r.Inclusion,
     isPerStay: r.IsPerStay,
   };
