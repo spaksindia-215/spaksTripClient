@@ -61,6 +61,22 @@ export default function RoomCard({ room, nights, rooms, onSelect }: Props) {
           )}
         </div>
 
+        {room.supplements && room.supplements.length > 0 && (
+          <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
+            <p className="text-[11px] font-bold text-orange-900 mb-1">Supplements</p>
+            <ul className="flex flex-col gap-0.5">
+              {room.supplements.map((supplement, i) => (
+                <li key={i} className="flex justify-between gap-3 text-[11px] text-orange-800">
+                  <span>{supplement.description}</span>
+                  <span className="whitespace-nowrap font-semibold">
+                    {supplement.currency} {supplement.price != null ? supplement.price.toLocaleString() : "—"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="flex items-end justify-between gap-3 mt-auto pt-2 border-t border-border-soft">
           <p className="text-[12px] text-ink-muted">
             {room.amenities.slice(0, 3).map((a) => a.replace("_", " ")).join(" · ")}

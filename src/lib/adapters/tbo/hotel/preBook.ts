@@ -41,7 +41,7 @@ interface TboPreBookRoom {
   WithTransfers?: boolean;
   Amenities?: string[];
   // Mandatory supplements (paid at hotel, may be in hotel's local currency)
-  Supplements?: TboSupplement[];
+  Supplements?: TboSupplement[][];
   // Validation fields returned by PreBook (not in Search)
   PanMandatory?: boolean;
   PassportMandatory?: boolean;
@@ -204,7 +204,9 @@ function mapRoom(r: TboPreBookRoom): PreBookRoom {
     isRefundable: r.IsRefundable,
     withTransfers: r.WithTransfers ?? false,
     amenities: r.Amenities ?? [],
-    supplements: r.Supplements ? mapSupplements(r.Supplements) : undefined,
+    supplements: r.Supplements && r.Supplements.length > 0
+      ? mapSupplements(r.Supplements.flat())
+      : undefined,
     panMandatory: r.PanMandatory ?? false,
     passportMandatory: r.PassportMandatory ?? false,
     corporateBookingAllowed: r.CorporateBookingAllowed ?? false,

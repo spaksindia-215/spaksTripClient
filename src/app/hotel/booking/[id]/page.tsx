@@ -12,6 +12,14 @@ import CancelBookingButton from "@/components/accommodation/CancelBookingButton"
 
 type BookingStatus = "confirmed" | "held" | "voucher" | "cancelled";
 
+interface BookingRoomSupplement {
+  index: string;
+  type: string;
+  description: string;
+  price: number;
+  currency: string;
+}
+
 interface BookingDetail {
   bookingId: number;
   bookingRefNo: string;
@@ -23,6 +31,7 @@ interface BookingDetail {
   lastVoucherDate?: string;
   lastCancellationDeadline?: string;
   voucherStatus?: boolean;
+  rooms?: Array<{ supplements?: BookingRoomSupplement[] }>;
 }
 
 export default function BookingPage() {
@@ -79,6 +88,7 @@ function BookingInner() {
   const deadlineInfo = getVoucherDeadlineInfo(booking.lastVoucherDate);
   const isHeld = booking.status === "held" && !booking.voucherStatus;
   const canGenerateVoucher = isHeld && !deadlineInfo.isExpired;
+  const supplements = (booking.rooms ?? []).flatMap((r) => r.supplements ?? []);
 
   const handleGenerateVoucher = async () => {
     setGenerating(true);
@@ -161,6 +171,32 @@ function BookingInner() {
               </div>
             </div>
           </div>
+
+          {/* Mandatory Supplements */}
+          {supplements.length > 0 && (
+            <section className="rounded-xl bg-orange-50 border border-orange-200 p-4 shadow-(--shadow-xs) mb-6">
+              <h3 className="text-[13px] font-bold text-orange-900 mb-3">Supplements</h3>
+              <div className="flex flex-col gap-2.5 mb-3">
+                {supplements.map((supplement, i) => (
+                  <div
+                    key={i}
+                    className="flex justify-between items-start gap-3 pb-2.5 border-b border-orange-200 last:pb-0 last:border-0"
+                  >
+                    <div className="flex-1">
+                      <p className="text-[12px] font-semibold text-orange-900">{supplement.description}</p>
+                      <p className="text-[11px] text-orange-800">{supplement.type}</p>
+                    </div>
+                    <p className="text-[12px] font-bold text-orange-900 whitespace-nowrap">
+                      {supplement.currency} {supplement.price != null ? supplement.price.toLocaleString() : "—"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-orange-800 leading-relaxed italic border-t border-orange-200 pt-2">
+                ⚠ These charges are collected directly at the hotel during check-in. Currency shown may differ from your booking currency.
+              </p>
+            </section>
+          )}
 
           {/* Held Booking Status */}
           {isHeld && (
