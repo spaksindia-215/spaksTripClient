@@ -178,8 +178,8 @@ export function mapCancelPolicies(raw: TboSearchCancelPolicy[] | undefined): Can
 export interface TboSupplement {
   Index: number | string;
   Type: string;
-  Supplement: string;
-  Amount: number;
+  Description: string;
+  Price: number;
   Currency: string;
 }
 
@@ -188,8 +188,8 @@ export function mapSupplements(raw: TboSupplement[] | undefined): Supplement[] {
   return raw.map((s) => ({
     index: String(s.Index),
     type: s.Type,
-    description: s.Supplement,
-    price: s.Amount,
+    description: s.Description,
+    price: s.Price,
     currency: s.Currency, // May differ from account default currency
   }));
 }

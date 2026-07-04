@@ -71,7 +71,7 @@ export default function PreBookDetailsSection({ preBook, priceChanged }: Props) 
       {/* Mandatory Supplements */}
       {preBook.supplements && preBook.supplements.length > 0 && (
         <section className="rounded-xl bg-orange-50 border border-orange-200 p-4 shadow-(--shadow-xs)">
-          <h3 className="text-[13px] font-bold text-orange-900 mb-3">Mandatory Charges at Hotel</h3>
+          <h3 className="text-[13px] font-bold text-orange-900 mb-3">Supplements</h3>
           <div className="flex flex-col gap-2.5 mb-3">
             {preBook.supplements.map((supplement, i) => (
               <div

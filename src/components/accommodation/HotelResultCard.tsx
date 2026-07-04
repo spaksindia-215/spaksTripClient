@@ -52,6 +52,7 @@ export default function HotelResultCard({ hotel, checkIn, checkOut, rooms, adult
   const href = `/hotel/${hotel.id}?checkIn=${checkIn}&checkOut=${checkOut}&rooms=${rooms}&adults=${adults}&children=${children}${ageParam}`;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const hasMultipleImages = hotel.images.length > 1;
+  const hasSupplements = hotel.rooms.some((r) => r.supplements && r.supplements.length > 0);
 
   const goToPreviousImage = () => {
     setCurrentImageIndex((prev) => (prev === 0 ? hotel.images.length - 1 : prev - 1));
@@ -150,6 +151,9 @@ export default function HotelResultCard({ hotel, checkIn, checkOut, rooms, adult
             ))}
             {hotel.amenities.length > 4 && (
               <Badge tone="neutral" size="sm">+{hotel.amenities.length - 4} more</Badge>
+            )}
+            {hasSupplements && (
+              <Badge tone="warn" size="sm">Supplements apply</Badge>
             )}
           </div>
         </div>

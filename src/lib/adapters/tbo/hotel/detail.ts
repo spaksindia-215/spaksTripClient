@@ -13,7 +13,9 @@ import {
   mapRoomType,
   mapBedType,
   mapCancelPolicies,
+  mapSupplements,
   type TboSearchCancelPolicy,
+  type TboSupplement,
   type DistributionType,
 } from "./hotelUtils";
 import type { TboStaticHotelDetail } from "../types";
@@ -43,6 +45,8 @@ interface TboDetailSearchRoom {
   MealType?: string;
   IsRefundable: boolean;
   RoomID?: string[];
+  // Mandatory supplements (paid at hotel, may be in hotel's local currency)
+  Supplements?: TboSupplement[][];
 }
 
 interface TboDetailSearchHotel {
@@ -80,6 +84,9 @@ function mapRoom(r: TboDetailSearchRoom): Room {
     nightlyRate: Number.isFinite(nightlyRate) ? nightlyRate : undefined,
     recommendedSellingRate: (rsp && rsp > 0) ? rsp : undefined,
     cancelPolicies: mapCancelPolicies(r.CancelPolicies),
+    supplements: r.Supplements && r.Supplements.length > 0
+      ? mapSupplements(r.Supplements.flat())
+      : undefined,
     roomPromotion: roomPromotion && roomPromotion.length > 0 ? roomPromotion : undefined,
     roomId: r.RoomID,
     mealType: r.MealType,
