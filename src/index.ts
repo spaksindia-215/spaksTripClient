@@ -51,14 +51,6 @@ async function main(): Promise<void> {
   // resolver order, which can return IPv6 first.
   dns.setDefaultResultOrder("ipv4first");
 
-  await connectDb();
-  await seedPlatformConfig();
-
-  // ADDED: probe PostgreSQL without blocking startup. If it is down or unset,
-  // testConnection() logs a warning and resolves — the server boots regardless
-  // and all existing MongoDB features keep working.
-  void testConnection();
-
   const app = express();
 
   // Trust Railway's reverse proxy so req.ip and secure flag are accurate
@@ -141,18 +133,32 @@ async function main(): Promise<void> {
 
   app.use(errorHandler);
 
+  // Bind the port FIRST so the host's startup probe (Hostinger/Passenger warns
+  // if listen() is not called within 3s) sees the server immediately. Mongoose
+  // buffers queries until connectDb() resolves, so requests that arrive during
+  // the brief pre-connection window wait rather than fail.
   app.listen(env.port, () => {
     console.log(`[server] listening on http://localhost:${env.port}`);
-    // ADDED: start background workers after the server is listening. Each guards
-    // internally against PostgreSQL being unconfigured/unavailable.
-    startHealWorker();
-    startReconciliationWorker();
-    startDLQWorker();
-    // No-op unless EXTERNAL_EVENTS_SYNC_ENABLED=true.
-    startExternalEventsSyncWorker();
-    // No-op unless EVENT_REMINDERS_ENABLED=true.
-    startEventReminderWorker();
   });
+
+  // Data stores + background workers come up after the port is bound.
+  await connectDb();
+  await seedPlatformConfig();
+
+  // Probe PostgreSQL without blocking startup. If it is down or unset,
+  // testConnection() logs a warning and resolves — the server boots regardless
+  // and all existing MongoDB features keep working.
+  void testConnection();
+
+  // Background workers. Each guards internally against PostgreSQL being
+  // unconfigured/unavailable.
+  startHealWorker();
+  startReconciliationWorker();
+  startDLQWorker();
+  // No-op unless EXTERNAL_EVENTS_SYNC_ENABLED=true.
+  startExternalEventsSyncWorker();
+  // No-op unless EVENT_REMINDERS_ENABLED=true.
+  startEventReminderWorker();
 }
 
 main().catch((err) => {

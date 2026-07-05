@@ -90,7 +90,7 @@ const packageEnquirySchema = new Schema<IPackageEnquiry>(
 );
 
 packageEnquirySchema.index({ partner: 1, status: 1 });
-packageEnquirySchema.index({ package: 1 });
+// `package` is already indexed via `index: true` on the field definition above.
 packageEnquirySchema.index({ createdAt: -1 });
 
 packageEnquirySchema.set("toJSON", {

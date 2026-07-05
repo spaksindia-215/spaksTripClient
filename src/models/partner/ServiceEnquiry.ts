@@ -98,7 +98,7 @@ const serviceEnquirySchema = new Schema<IServiceEnquiry>(
 
 serviceEnquirySchema.index({ partner: 1, vertical: 1, status: 1 });
 serviceEnquirySchema.index({ customer: 1, vertical: 1 });
-serviceEnquirySchema.index({ listing: 1 });
+// `listing` is already indexed via `index: true` on the field definition above.
 serviceEnquirySchema.index({ createdAt: -1 });
 
 serviceEnquirySchema.set("toJSON", {
