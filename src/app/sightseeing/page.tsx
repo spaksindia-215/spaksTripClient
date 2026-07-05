@@ -1,16 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
 import EmptyState from "@/components/ui/EmptyState";
-import { browseSightseeing, type SightseeingFilters } from "@/lib/sightseeingClient";
+import { browseSightseeing } from "@/lib/sightseeingClient";
 import type { SightseeingListingApi } from "@/lib/partnerClient";
-import { SIGHTSEEING_CATEGORIES, CATEGORY_LABELS } from "@/lib/sightseeingForm";
+import { CATEGORY_LABELS } from "@/lib/sightseeingForm";
 import { ServiceSchema } from "@/lib/seo/schemas";
 
 function priceLabel(item: SightseeingListingApi): string {
@@ -24,37 +21,24 @@ export default function SightseeingLandingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter state
-  const [q, setQ] = useState("");
-  const [island, setIsland] = useState("");
-  const [category, setCategory] = useState("");
-  const [sort, setSort] = useState<SightseeingFilters["sort"]>("newest");
-
-  const load = useCallback(async (filters: SightseeingFilters) => {
+  useEffect(() => {
+    let active = true;
     setLoading(true);
     setError(null);
-    try {
-      const res = await browseSightseeing(filters);
-      setItems(res.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load activities.");
-    } finally {
-      setLoading(false);
-    }
+    browseSightseeing({ sort: "newest" })
+      .then((res) => {
+        if (active) setItems(res.items);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : "Could not load activities.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-
-  useEffect(() => {
-    void load({ sort: "newest" });
-  }, [load]);
-
-  function applyFilters() {
-    void load({
-      q: q.trim() || undefined,
-      island: island.trim() || undefined,
-      category: category || undefined,
-      sort,
-    });
-  }
 
   return (
     <div className="min-h-screen bg-white text-[#0E1E3A]">
@@ -70,26 +54,6 @@ export default function SightseeingLandingPage() {
           Discover tours, activities and experiences. Enquire with the operator to book.
         </p>
 
-        {/* Search & filters */}
-        <section className="mt-6 grid gap-3 rounded-2xl border border-border-soft bg-surface-muted p-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Input id="ss-q" label="Search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Dolphin cruise" />
-          <Input id="ss-island" label="Island / City" value={island} onChange={(e) => setIsland(e.target.value)} placeholder="Havelock" />
-          <Select id="ss-category" label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">All categories</option>
-            {SIGHTSEEING_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-            ))}
-          </Select>
-          <Select id="ss-sort" label="Sort" value={sort} onChange={(e) => setSort(e.target.value as SightseeingFilters["sort"])}>
-            <option value="newest">Newest</option>
-            <option value="price_asc">Price: Low to High</option>
-            <option value="price_desc">Price: High to Low</option>
-          </Select>
-          <div className="flex items-end">
-            <Button type="button" variant="accent" fullWidth onClick={applyFilters}>Search</Button>
-          </div>
-        </section>
-
         {/* Results */}
         <section className="mt-8">
           {loading ? (
@@ -101,7 +65,7 @@ export default function SightseeingLandingPage() {
           ) : error ? (
             <EmptyState title="Something went wrong" subtitle={error} />
           ) : items.length === 0 ? (
-            <EmptyState title="No activities found" subtitle="Try a different search or check back soon." />
+            <EmptyState title="No activities found" subtitle="Check back soon." />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {items.map((item) => (

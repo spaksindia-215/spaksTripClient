@@ -39,7 +39,13 @@ export async function proxyToRailway(req: NextRequest, upstreamPath: string): Pr
   }
 
   const upstream = await fetch(new URL(upstreamPath, RAILWAY), upstreamInit);
-  const resBody = await upstream.arrayBuffer();
+
+  // 101/204/205/304 are "null body status" codes — the Response constructor
+  // throws "Invalid response status code" if handed any body, even an empty
+  // ArrayBuffer. Express returns 204 on a successful DELETE, so forward these
+  // with a null body (otherwise the delete succeeds upstream but the proxy 500s).
+  const isNullBodyStatus = [101, 204, 205, 304].includes(upstream.status);
+  const resBody = isNullBodyStatus ? null : await upstream.arrayBuffer();
 
   const res = new NextResponse(resBody, {
     status: upstream.status,
