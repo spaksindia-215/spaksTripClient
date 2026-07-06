@@ -1,6 +1,6 @@
 import "server-only";
 import { logRequest, logResponse, logError } from "../log";
-import { assertTboSuccess, TboBookingFailedError } from "../errors";
+import { assertTboSuccess, TboBookingFailedError, TboError } from "../errors";
 import { basicAuthHeader, type DistributionType } from "./hotelUtils";
 import { fetchWithTimeout, isTimeoutError, TimeoutError } from "../timeout";
 
@@ -240,25 +240,44 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
     );
   }
 
+  // Diagnostics only: Error/TraceId are not passenger or payment data, safe to log.
   logResponse("Hotel Book", res.status, {
     Status: data.BookResult?.Status,
     HotelBookingStatus: data.BookResult?.HotelBookingStatus,
     BookingId: data.BookResult?.BookingId,
     IsPriceChanged: data.BookResult?.IsPriceChanged,
+    Error: data.BookResult?.Error,
+    TraceId: data.BookResult?.TraceId,
   });
 
   if (!res.ok) throw new Error(`TBO Book HTTP ${res.status}`);
-  assertTboSuccess(data.BookResult?.Error);
+
+  try {
+    assertTboSuccess(data.BookResult?.Error);
+  } catch (err) {
+    // Diagnostic-only: attach raw TraceId so it survives alongside the typed
+    // error's existing ErrorCode/ErrorMessage (already preserved as .code/.message).
+    if (err instanceof TboError && data.BookResult?.TraceId) {
+      (err as TboError & { traceId?: string }).traceId = data.BookResult.TraceId;
+    }
+    throw err;
+  }
 
   const r = data.BookResult;
   if (!r) throw new Error("TBO Book returned empty BookResult");
 
   const bookingStatus = mapBookingStatus(r.HotelBookingStatus, r.Status);
+  const rawDetails = {
+    tboErrorCode: r.Error?.ErrorCode,
+    tboErrorMessage: r.Error?.ErrorMessage,
+    traceId: r.TraceId,
+  };
 
   // Status 3 = VerifyPrice — rate changed since PreBook; caller must re-prebook
   if (bookingStatus === "VerifyPrice") {
     throw new TboBookingFailedError(
       `Price or cancellation policy changed (VerifyPrice). Updated amount: ${r.NetAmount ?? "unknown"}. Please re-confirm with updated rate.`,
+      rawDetails,
     );
   }
 
@@ -267,12 +286,14 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
     // TBO requirement: "No calling in failed booking case"
     throw new TboBookingFailedError(
       `Booking explicitly failed (status_code=0). No recovery attempted.`,
+      rawDetails,
     );
   }
 
   if (bookingStatus === "Unknown") {
     throw new TboBookingFailedError(
       `Booking returned unknown status "${r.HotelBookingStatus ?? bookingStatus}"`,
+      rawDetails,
     );
   }
 

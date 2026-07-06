@@ -108,19 +108,29 @@ export default function PreBookDetailsSection({ preBook, priceChanged }: Props) 
                 className="flex justify-between items-start gap-3 pb-2.5 border-b border-blue-200 last:pb-0 last:border-0"
               >
                 <div>
-                  <p className="text-[12px] font-semibold text-blue-900">Cancel until {policy.fromDate}</p>
+                  <p className="text-[12px] font-semibold text-blue-900">From {policy.fromDate}, cancellation charge applies</p>
                   <p className="text-[11px] text-blue-800">{policy.chargeType}</p>
                 </div>
                 <p className="text-[12px] font-bold text-blue-900 whitespace-nowrap">₹{policy.cancellationCharge.toLocaleString()}</p>
               </div>
             ))}
           </div>
-          <div className="bg-white rounded px-3 py-2.5 border border-blue-100 mb-3">
-            <p className="text-[11px] text-blue-900 font-semibold">⏰ Hold Booking Deadline</p>
-            <p className="text-[12px] text-blue-800 mt-1">
-              If you choose to hold this booking, you must generate the voucher before <span className="font-bold">{preBook.lastVoucherDate || preBook.cancelPolicies[0]?.fromDate}</span>
-            </p>
-          </div>
+          {preBook.lastVoucherDate && (
+            <div className="bg-white rounded px-3 py-2.5 border border-blue-100 mb-3">
+              <p className="text-[11px] text-blue-900 font-semibold">⏰ Hold Booking Deadline</p>
+              <p className="text-[12px] text-blue-800 mt-1">
+                If you choose to hold this booking, you must generate the voucher before <span className="font-bold">{preBook.lastVoucherDate}</span>
+              </p>
+            </div>
+          )}
+          {preBook.lastCancellationDeadline && (
+            <div className="bg-white rounded px-3 py-2.5 border border-blue-100 mb-3">
+              <p className="text-[11px] text-blue-900 font-semibold">Free Cancellation Deadline</p>
+              <p className="text-[12px] text-blue-800 mt-1">
+                This booking can be cancelled without the above charges applying until <span className="font-bold">{preBook.lastCancellationDeadline}</span>
+              </p>
+            </div>
+          )}
           <p className="text-[11px] text-blue-800 leading-relaxed italic border-t border-blue-200 pt-2">
             These are the final cancellation policies locked by TBO during PreBook. If you hold the booking, ensure you generate the voucher before the deadline to avoid losing the booking. TBO will not take liability if you miss the voucher deadline.
           </p>
