@@ -31,8 +31,14 @@ export function languageCodeToName(code: string): LanguageName {
 }
 
 export function createTolgee(initialLanguageCode: LanguageCode = "en") {
-  return Tolgee()
-    .use(DevTools())
+  const tolgee = Tolgee();
+  // DevTools wraps rendered strings with invisible Unicode markers for its
+  // in-context editor overlay, applied client-side only — this causes SSR/CSR
+  // hydration mismatches on every translated string when enabled in production.
+  if (process.env.NODE_ENV === "development") {
+    tolgee.use(DevTools());
+  }
+  return tolgee
     .use(FormatSimple())
     .init({
       language: initialLanguageCode,
