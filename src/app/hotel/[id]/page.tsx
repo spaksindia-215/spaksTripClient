@@ -160,6 +160,10 @@ function HotelDetailInner() {
         return;
       }
 
+      // ValidationInfo is the authoritative, top-level TBO node for PAN/passport
+      // requirements — must be used instead of any per-room flag.
+      const validationInfo = preBookData.validationInfo;
+
       // Store PreBook info in booking store
       const preBookInfo: HotelPreBookInfo = {
         bookingCode: firstRoom.bookingCode,
@@ -169,9 +173,10 @@ function HotelDetailInner() {
         rateConditions: preBookData.rateConditions,
         supplements: firstRoom.supplements,
         netAmount: firstRoom.netAmount || firstRoom.totalFare,
-        panMandatory: firstRoom.panMandatory,
-        passportMandatory: firstRoom.passportMandatory,
-        corporateBookingAllowed: firstRoom.corporateBookingAllowed,
+        panMandatory: validationInfo?.panMandatory ?? false,
+        panCountRequired: validationInfo?.panCountRequired ?? 0,
+        passportMandatory: validationInfo?.passportMandatory ?? false,
+        corporateBookingAllowed: validationInfo?.corporateBookingAllowed ?? false,
         paxNameMinLength: firstRoom.paxNameMinLength,
         paxNameMaxLength: firstRoom.paxNameMaxLength,
         lastVoucherDate: firstRoom.lastVoucherDate,
