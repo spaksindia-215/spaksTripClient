@@ -103,6 +103,14 @@ function computeHotelTotals(room: Room, nights: number, rooms: number, addOns: H
   return { subtotal, taxes, total: subtotal + taxes };
 }
 
+// Add-on cost only (no tax, no base fare) — used to adjust the PreBook-authoritative
+// total without reintroducing the synthetic 12% tax or stale Search-time base price.
+function computeAddOnCost(nights: number, rooms: number, addOns: HotelBooking["addOns"]) {
+  const breakfastCost = addOns.breakfast ? 650 * nights * rooms : 0;
+  const insuranceCost = addOns.insurance ? 499 : 0;
+  return breakfastCost + insuranceCost;
+}
+
 function nightsBetween(checkIn: string, checkOut: string): number {
   const diff = new Date(checkOut).getTime() - new Date(checkIn).getTime();
   return Math.max(1, Math.round(diff / 86400000));
@@ -167,6 +175,21 @@ export const useHotelBookingStore = create<State & Actions>()(
         set((s) => {
           if (!s.current) return s;
           const addOns = { ...s.current.addOns, ...a };
+          // Once PreBook has run, TBO's netAmount is the source of truth for the
+          // base price. Only layer the explicit add-on cost on top of it — never
+          // recompute from the stale Search-time room.basePrice or re-apply the
+          // synthetic 12% tax.
+          if (s.current.preBook) {
+            const addOnCost = computeAddOnCost(s.current.nights, s.current.rooms, addOns);
+            return {
+              current: {
+                ...s.current,
+                addOns,
+                taxes: 0,
+                totalPrice: s.current.preBook.netAmount + addOnCost,
+              },
+            };
+          }
           const { taxes, total } = computeHotelTotals(s.current.room, s.current.nights, s.current.rooms, addOns);
           return { current: { ...s.current, addOns, taxes, totalPrice: total } };
         }),

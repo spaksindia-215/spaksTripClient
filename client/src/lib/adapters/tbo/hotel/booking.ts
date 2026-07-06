@@ -277,6 +277,7 @@ export interface HotelBookingDetailResult {
   rooms: BookingRoom[];
   // Metadata
   lastCancellationDeadline?: string;
+  lastVoucherDate?: string;
   bookingSource?: string;
   agentRemarks?: string;
   bookingHistory: BookingHistoryEntry[];
@@ -534,7 +535,10 @@ export async function tboGetHotelBookingDetail(
     netAmount: r.NetAmount,
     netTax: r.NetTax,
     rooms: (r.Rooms ?? []).map(mapRoom),
+    // Kept as raw TBO date strings (not display-formatted) since getVoucherDeadlineInfo()
+    // parses lastVoucherDate with `new Date()` to compute expiry.
     lastCancellationDeadline: r.LastCancellationDeadline,
+    lastVoucherDate: r.LastVoucherDate,
     bookingSource: r.BookingSource,
     agentRemarks: r.AgentRemarks,
     bookingHistory: mapHistory(r.BookingHistory),

@@ -32,6 +32,9 @@ interface TboPreBookRoom {
   DayRates?: Array<Array<{ BasePrice: number }>>;
   TotalFare: number;
   TotalTax?: number;
+  // Not part of the documented PreBook contract, but logged for certification
+  // verification if TBO ever includes it.
+  PublishedPrice?: number;
   ExtraGuestCharges?: number;
   RecommendedSellingRate?: string;
   RoomPromotion?: string[] | string[][];
@@ -300,6 +303,15 @@ export async function tboPreBookHotel(
     Status: data.Status,
     HotelCode: data.HotelResult?.[0]?.HotelCode,
     Rooms: data.HotelResult?.[0]?.Rooms?.length ?? 0,
+    // Certification/debug pricing fields — logging only, not used for control flow.
+    Pricing: (data.HotelResult?.[0]?.Rooms ?? []).map((r) => ({
+      BookingCode: r.BookingCode,
+      NetAmount: r.NetAmount,
+      TotalFare: r.TotalFare,
+      ...(r.PublishedPrice !== undefined ? { PublishedPrice: r.PublishedPrice } : {}),
+      LastVoucherDate: r.LastVoucherDate,
+      LastCancellationDeadline: r.LastCancellationDeadline,
+    })),
   });
 
   if (!res.ok) throw new Error(`TBO PreBook HTTP ${res.status}`);

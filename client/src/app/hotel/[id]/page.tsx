@@ -174,6 +174,8 @@ function HotelDetailInner() {
         corporateBookingAllowed: firstRoom.corporateBookingAllowed,
         paxNameMinLength: firstRoom.paxNameMinLength,
         paxNameMaxLength: firstRoom.paxNameMaxLength,
+        lastVoucherDate: firstRoom.lastVoucherDate,
+        lastCancellationDeadline: firstRoom.lastCancellationDeadline,
       };
 
       // Detect price change: compare Search price vs PreBook price

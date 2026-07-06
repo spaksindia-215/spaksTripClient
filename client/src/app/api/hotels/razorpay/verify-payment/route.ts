@@ -40,6 +40,10 @@ interface HotelPaymentRecord {
   tboInvoiceNumber?:  string | null;
   tboError?:          string;
   tboFailureReason?:  "explicit_failure" | "timeout" | "network_error" | "unknown";
+  // Raw TBO Book error envelope, preserved for diagnostics only (not used in any control flow).
+  tboErrorCode?:      number;
+  tboErrorMessage?:   string;
+  tboTraceId?:        string;
   refundId?:          string;
   refundInitiated:    boolean;
   // Agent attribution — present on subdomain customer bookings only
@@ -579,11 +583,25 @@ export async function POST(request: NextRequest) {
     const tboFailureReason: "explicit_failure" | "timeout" | "unknown" =
       isExplicitFailure ? "explicit_failure" : isTimeout ? "timeout" : "unknown";
 
+    // Raw TBO error envelope, preserved for diagnostics only — does not affect
+    // isExplicitFailure/isTimeout/isPriceChanged or any refund/retry decision above.
+    const tboErrorCode = e instanceof TboBookingFailedError ? e.tboErrorCode : undefined;
+    const tboErrorMessage = e instanceof TboBookingFailedError ? e.tboErrorMessage : undefined;
+    const tboTraceId =
+      e instanceof TboBookingFailedError
+        ? e.traceId
+        : e instanceof TboError
+          ? (e as TboError & { traceId?: string }).traceId
+          : undefined;
+
     logError("BOOK_HOTEL", e, {
       razorpayPaymentId,
       razorpayOrderId,
       isTimeout,
       isPriceChanged,
+      tboErrorCode,
+      tboErrorMessage,
+      tboTraceId,
     });
 
     // If we failed before reaching the DB/TBO stage (bad signature, missing
@@ -608,6 +626,9 @@ export async function POST(request: NextRequest) {
               status: "tbo_timeout",
               tboError: msg,
               tboFailureReason: "timeout",
+              tboErrorCode,
+              tboErrorMessage,
+              tboTraceId,
               updatedAt: new Date(),
             },
           },
@@ -645,6 +666,9 @@ export async function POST(request: NextRequest) {
             status: "tbo_failed",
             tboError: msg,
             tboFailureReason,
+            tboErrorCode,
+            tboErrorMessage,
+            tboTraceId,
             updatedAt: new Date(),
           },
         },
@@ -667,7 +691,10 @@ export async function POST(request: NextRequest) {
           `\n  reason: ${reason}` +
           `\n  razorpayPaymentId: ${razorpayPaymentId}` +
           `\n  refundInitiated: ${refundId !== null}` +
-          `\n  refundId: ${refundId ?? "none"}`,
+          `\n  refundId: ${refundId ?? "none"}` +
+          `\n  tboErrorCode: ${tboErrorCode ?? "none"}` +
+          `\n  tboErrorMessage: ${tboErrorMessage ?? "none"}` +
+          `\n  tboTraceId: ${tboTraceId ?? "none"}`,
       );
 
       return NextResponse.json(
