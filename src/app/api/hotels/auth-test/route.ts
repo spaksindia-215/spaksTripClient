@@ -30,7 +30,7 @@ export async function GET() {
       {
         success: false,
         error: message,
-        details: "Check TBO credentials in .env.local (TBO_USER_NAME, TBO_PASSWORD, etc.)",
+        details: "Check TBO Air credentials (TBO_AIR_USERNAME, TBO_AIR_PASSWORD, etc.)",
       },
       { status: 500 },
     );
