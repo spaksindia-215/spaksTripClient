@@ -32,7 +32,8 @@ export type PartnerOffer = {
 
 export type PartnerEnquiry = {
   id: string;
-  package: { id: string; title: string; slug: string; kind: PackageKind; scope: PackageScope } | string;
+  // `null` when the referenced package has been hard-deleted (lead is kept).
+  package: { id: string; title: string; slug: string; kind: PackageKind; scope: PackageScope } | string | null;
   offer?: { id: string; price: number; currency: string } | string;
   partner: string;
   customer?: string | Operator;

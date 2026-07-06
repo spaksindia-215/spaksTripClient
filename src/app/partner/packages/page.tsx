@@ -511,7 +511,7 @@ export default function PartnerPackagesPage() {
             {enquiries.map((e) => (
               <div key={e.id} className="flex flex-col gap-2 rounded-xl border border-border-soft bg-white p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[14px] font-bold text-ink">{typeof e.package === "object" ? e.package.title : "Package"}</p>
+                  <p className="text-[14px] font-bold text-ink">{e.package && typeof e.package === "object" ? e.package.title : "Deleted package"}</p>
                   <Badge tone={e.status === "new" ? "warn" : e.status === "converted" ? "success" : "neutral"} size="sm">{e.status}</Badge>
                 </div>
                 <p className="text-[13px] text-ink-soft">

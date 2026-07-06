@@ -28,7 +28,8 @@ export type ServiceListingApi = {
 export type ServiceEnquiryApi = {
   id: string;
   vertical: string;
-  listing: { id: string; title?: string; slug?: string } | string;
+  // `null` when the referenced listing has been hard-deleted (lead is kept).
+  listing: { id: string; title?: string; slug?: string } | string | null;
   status: "new" | "contacted" | "quoted" | "converted" | "closed" | "spam";
   contact: { name: string; phone: string; email?: string };
   travelDate?: string;

@@ -299,14 +299,20 @@ export default function ServiceListingManager({ config }: { config: ServiceModul
         ) : (
           <section className="space-y-4">
             {enquiries.map((e) => {
-              const listingTitle = typeof e.listing === "string" ? "" : e.listing.title;
+              // A hard-deleted listing leaves the lead intact but unpopulated (null).
+              const listingTitle = e.listing && typeof e.listing !== "string" ? e.listing.title : "";
+              const listingRemoved = !e.listing || (typeof e.listing !== "string" && !e.listing.id);
               return (
                 <article key={e.id} className="rounded-xl border border-border-soft bg-white p-5 shadow-(--shadow-xs)">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-ink">{e.contact.name} · {e.contact.phone}</p>
                       {e.contact.email ? <p className="text-sm text-ink-muted">{e.contact.email}</p> : null}
-                      {listingTitle ? <p className="mt-1 text-sm text-ink-soft">For: {listingTitle}</p> : null}
+                      {listingTitle ? (
+                        <p className="mt-1 text-sm text-ink-soft">For: {listingTitle}</p>
+                      ) : listingRemoved ? (
+                        <p className="mt-1 text-sm italic text-ink-muted">For: a deleted listing</p>
+                      ) : null}
                       <p className="mt-1 text-sm text-ink-muted">
                         {e.pax.adults} adults · {e.pax.children} children
                         {e.travelDate ? ` · ${new Date(e.travelDate).toLocaleDateString()}` : ""}
