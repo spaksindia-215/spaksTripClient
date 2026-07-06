@@ -1,13 +1,14 @@
 /**
- * TBO Nationality & Identity Validation
+ * TBO Identity Validation
  *
- * Rules:
- * - International destinations (non-India): Only Indian nationality (PAN required)
- * - Domestic destinations (India): All nationalities (Passport required for non-Indian)
+ * Passport requirement is derived from nationality/destination (foreign
+ * guest at a domestic hotel needs a passport). PAN requirement is NOT
+ * derived here — PreBook's ValidationInfo.PanMandatory is the single
+ * source of truth for PAN (see HotelPreBookInfo.panMandatory /
+ * panCountRequired), regardless of nationality or destination.
  */
 
 export type IdentityRequirement = {
-  panRequired: boolean;
   passportRequired: boolean;
   reason: string;
 };
@@ -19,30 +20,24 @@ export function getIdentityRequirement(
   const isIndian = guestNationality === "IN";
   const isDomestic = hotelCountry?.toUpperCase() === "INDIA" || hotelCountry?.toUpperCase() === "IN";
 
-  // TBO requires PAN for all Indian nationals on every hotel booking (domestic
-  // and international) per Indian Income Tax regulations. preBookPanMandatory
-  // from the PreBook response is an additional signal but not the primary one.
-  if (isIndian) {
-    return {
-      panRequired: true,
-      passportRequired: false,
-      reason: "PAN is mandatory for all Indian nationals per TBO requirements",
-    };
-  }
-
-  if (isDomestic) {
+  if (!isIndian && isDomestic) {
     // Domestic hotel, foreign guest
     return {
-      panRequired: false,
       passportRequired: true,
       reason: "Domestic hotel, foreign guest — passport required",
     };
   }
 
+  if (!isIndian && !isDomestic) {
+    return {
+      passportRequired: false,
+      reason: "International hotel, foreign guest — not allowed per TBO India policy",
+    };
+  }
+
   return {
-    panRequired: false,
     passportRequired: false,
-    reason: "International hotel, foreign guest — not allowed per TBO India policy",
+    reason: "",
   };
 }
 

@@ -44,7 +44,8 @@ export function usePreBook(options: UsePreBookOptions) {
 
       const { data } = await response.json();
 
-      // Get the first room from the response
+      // Get the first room from the response (pricing/name-length fields only —
+      // PAN/passport requirements come from the top-level ValidationInfo below).
       const firstRoom = data.rooms?.[0];
       if (!firstRoom) {
         throw new Error("No room data in PreBook response");
@@ -55,6 +56,10 @@ export function usePreBook(options: UsePreBookOptions) {
       const priceChanged = newPrice !== options.originalPrice;
       const priceChangeAmount = newPrice - options.originalPrice;
       const priceChangePercent = (priceChangeAmount / options.originalPrice) * 100;
+
+      // ValidationInfo is the authoritative, top-level TBO node for PAN/passport
+      // requirements — it must be used instead of any per-room flag.
+      const validationInfo = data.validationInfo;
 
       const result: PreBookResult = {
         priceChanged,
@@ -69,9 +74,10 @@ export function usePreBook(options: UsePreBookOptions) {
           cancelPolicies: firstRoom.cancelPolicies,
           rateConditions: data.rateConditions,
           netAmount: newPrice,
-          panMandatory: firstRoom.panMandatory,
-          passportMandatory: firstRoom.passportMandatory,
-          corporateBookingAllowed: firstRoom.corporateBookingAllowed,
+          panMandatory: validationInfo?.panMandatory ?? false,
+          panCountRequired: validationInfo?.panCountRequired ?? 0,
+          passportMandatory: validationInfo?.passportMandatory ?? false,
+          corporateBookingAllowed: validationInfo?.corporateBookingAllowed ?? false,
           paxNameMinLength: firstRoom.paxNameMinLength,
           paxNameMaxLength: firstRoom.paxNameMaxLength,
         },
