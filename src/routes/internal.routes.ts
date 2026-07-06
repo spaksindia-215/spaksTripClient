@@ -7,6 +7,8 @@ import { HttpError } from "../middleware/error";
 import { resolveOptionalUser } from "../middleware/auth";
 import { recordCustomerBooking } from "../services/customerBooking";
 import type { AnyBookingDetails } from "../models/bookingDetails";
+import { env } from "../config/env";
+import { query } from "../config/postgres";
 
 const router = Router();
 
@@ -204,6 +206,61 @@ router.get(
       }
       const data = (await upstream.json()) as { ip?: string };
       res.json({ egressIp: data.ip ?? null, checkedAt: new Date().toISOString() });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/internal/pg-health
+// Diagnostic: reports whether the PostgreSQL (Supabase) transaction layer is
+// actually reachable — the single fact that determines whether the heal /
+// reconciliation / DLQ workers do any work (each no-ops every tick when the pool
+// is null). Use this instead of trusting logs to confirm the workers are live.
+//   configured=false  → DATABASE_URL is unset in this env (set it).
+//   connected=false   → set but the connection failed; `error` says why
+//                       (e.g. IPv6-only Supabase direct host; use the IPv4 pooler).
+//   connected=true    → pool is up; the workers are polling `dlq` for real.
+// Never add a Next.js proxy route — keep it off the browser-reachable surface.
+router.get(
+  "/pg-health",
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const configured = Boolean(env.databaseUrl);
+      if (!configured) {
+        res.json({ configured: false, connected: false, checkedAt: new Date().toISOString() });
+        return;
+      }
+
+      let connected = false;
+      let now: string | null = null;
+      let error: string | null = null;
+      const dlq: { unresolved: number | null; total: number | null } = { unresolved: null, total: null };
+
+      try {
+        const ping = await query<{ now: Date }>("SELECT now() AS now");
+        connected = true;
+        now = ping.rows[0]?.now?.toISOString() ?? null;
+
+        // Probe the DLQ table so we can see whether the workers have pending work.
+        // Wrapped separately: a missing table shouldn't mask a healthy connection.
+        try {
+          const counts = await query<{ unresolved: string; total: string }>(
+            `SELECT
+               COUNT(*) FILTER (WHERE resolved = false) AS unresolved,
+               COUNT(*)                                  AS total
+             FROM dlq_events`,
+          );
+          dlq.unresolved = Number(counts.rows[0]?.unresolved ?? 0);
+          dlq.total = Number(counts.rows[0]?.total ?? 0);
+        } catch (dlqErr) {
+          error = `connected, but dlq_events probe failed: ${dlqErr instanceof Error ? dlqErr.message : String(dlqErr)}`;
+        }
+      } catch (err) {
+        error = err instanceof Error ? err.message : String(err);
+      }
+
+      res.json({ configured: true, connected, now, dlq, error, checkedAt: new Date().toISOString() });
     } catch (err) {
       next(err);
     }

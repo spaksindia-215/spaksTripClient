@@ -1,3 +1,4 @@
+import { Writable } from "node:stream";
 import pino from "pino";
 import { isProd } from "../config/env";
 
@@ -7,16 +8,22 @@ import { isProd } from "../config/env";
 //
 // Goal: any user's missing transaction should be traceable in under 60 seconds
 // by grepping for its correlation_id (provider_order_id or idempotency_key).
+
+// pino writes JSON straight to fd 1 via sonic-boom (fs.writeSync), which some
+// managed hosts (Hostinger's Passenger) do NOT capture — only `console.*` output
+// reaches their log stream, so worker/Postgres logs silently vanished while raw
+// console.log lines showed. This destination forwards every finished log line
+// through console.log so it rides the exact channel the host captures.
+const consoleDestination = new Writable({
+  write(chunk: Buffer, _enc, cb) {
+    // pino appends a trailing newline per line; console.log adds its own.
+    console.log(chunk.toString("utf8").replace(/\n$/, ""));
+    cb();
+  },
+});
+
 export const logger = isProd
-  ? // Synchronous destination on fd 1. pino's default (sonic-boom) buffers writes
-    // and flushes asynchronously, which some managed hosts (e.g. Hostinger's
-    // Passenger) fail to capture — worker/Postgres logs silently vanish while
-    // raw console.log lines still appear. sync:true flushes each line to stdout
-    // immediately, so structured logs surface in the host's log stream.
-    pino(
-      { level: process.env.LOG_LEVEL ?? "info" },
-      pino.destination({ dest: 1, sync: true }),
-    )
+  ? pino({ level: process.env.LOG_LEVEL ?? "info" }, consoleDestination)
   : pino({
       level: process.env.LOG_LEVEL ?? "debug",
       transport: {
