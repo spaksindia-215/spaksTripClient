@@ -1,0 +1,213 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/* ============================================================
+   SpaksTrip design tokens — TBO-inspired
+   ============================================================ */
+
+:root {
+  color-scheme: only light;
+
+  /* Brand */
+  --brand-50:  #eef4ff;
+  --brand-100: #dde9ff;
+  --brand-200: #bcd2ff;
+  --brand-300: #8db1ff;
+  --brand-400: #5a88f5;
+  --brand-500: #2f63e0;
+  --brand-600: #1e4fc7;
+  --brand-700: #163f9e;
+  --brand-800: #122f73;
+  --brand-900: #0e1e3a;
+  --brand-950: #08132a;
+
+  /* Accent (sunset orange) */
+  --accent-50:  #fff5ed;
+  --accent-100: #ffe6d4;
+  --accent-200: #ffc9a8;
+  --accent-300: #ffa371;
+  --accent-400: #ff7d3c;
+  --accent-500: #f25a1a;
+  --accent-600: #e04411;
+  --accent-700: #b8320f;
+  --accent-800: #932a14;
+  --accent-900: #772414;
+
+  /* Success / warn / danger / info */
+  --success-50:  #ecfdf5;
+  --success-200: #a7f3d0;
+  --success-500: #10b981;
+  --success-600: #059669;
+  --success-700: #047857;
+  --warn-50:     #fffbeb;
+  --warn-500:    #f59e0b;
+  --warn-600:    #d97706;
+  --danger-50:   #fef2f2;
+  --danger-200:  #fecaca;
+  --danger-500:  #ef4444;
+  --danger-600:  #dc2626;
+  --danger-700:  #b91c1c;
+  --info-50:     #eff6ff;
+  --info-500:    #3b82f6;
+
+  /* Neutrals */
+  --surface:        #ffffff;
+  --surface-muted:  #f6f7fb;
+  --surface-sunken: #eef0f6;
+  --border-soft:    #e5e7eb;
+  --border:         #d4d8e0;
+  --border-strong:  #9ca3af;
+  --ink:            #0e1e3a;
+  --ink-soft:       #334155;
+  --ink-muted:      #64748b;
+  --ink-subtle:     #94a3b8;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 2px rgba(14,30,58,.06);
+  --shadow-sm: 0 2px 6px -2px rgba(14,30,58,.10), 0 1px 2px rgba(14,30,58,.06);
+  --shadow-md: 0 8px 24px -8px rgba(14,30,58,.18), 0 2px 4px rgba(14,30,58,.06);
+  --shadow-lg: 0 20px 48px -12px rgba(14,30,58,.22), 0 4px 8px rgba(14,30,58,.08);
+  --shadow-pop: 0 12px 40px -10px rgba(14,30,58,.28);
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+
+  /* Background/foreground aliases kept for back-compat with existing pages */
+  --background: var(--surface);
+  --foreground: var(--ink);
+
+  /* Agent subdomain theming — overridden on <html> via inline style by root layout.
+     Defaults to the platform brand so apex pages are unaffected. */
+  --agent-primary: var(--brand-500);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
+  --color-accent-50:  var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+
+  --color-success-50:  var(--success-50);
+  --color-success-200: var(--success-200);
+  --color-success-500: var(--success-500);
+  --color-success-600: var(--success-600);
+  --color-success-700: var(--success-700);
+  --color-warn-50:     var(--warn-50);
+  --color-warn-500:    var(--warn-500);
+  --color-warn-600:    var(--warn-600);
+  --color-danger-50:   var(--danger-50);
+  --color-danger-200:  var(--danger-200);
+  --color-danger-500:  var(--danger-500);
+  --color-danger-600:  var(--danger-600);
+  --color-danger-700:  var(--danger-700);
+  --color-info-50:     var(--info-50);
+  --color-info-500:    var(--info-500);
+
+  --color-agent-primary: var(--agent-primary);
+
+  --color-surface:        var(--surface);
+  --color-surface-muted:  var(--surface-muted);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border-soft:    var(--border-soft);
+  --color-border:         var(--border);
+  --color-border-strong:  var(--border-strong);
+  --color-ink:            var(--ink);
+  --color-ink-soft:       var(--ink-soft);
+  --color-ink-muted:      var(--ink-muted);
+  --color-ink-subtle:     var(--ink-subtle);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  background: var(--surface);
+  color: var(--ink);
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Scrollbar polish */
+.scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* Hide scrollbar (used by mobile service strip) */
+.scrollbar-hide { scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* Keyframes shared by primitives */
+@keyframes st-fade-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes st-pop-in   { from { opacity: 0; transform: translateY(4px) scale(.98) } to { opacity: 1; transform: none } }
+@keyframes st-slide-up { from { transform: translateY(100%) } to { transform: none } }
+@keyframes st-shimmer  { from { background-position: -200% 0 } to { background-position: 200% 0 } }
+
+.animate-fade-in  { animation: st-fade-in .15s var(--ease-out) both; }
+.animate-pop-in   { animation: st-pop-in .16s var(--ease-out) both; }
+.animate-slide-up { animation: st-slide-up .22s var(--ease-out) both; }
+
+.skeleton {
+  background: linear-gradient(90deg, #eef0f6 0%, #f6f7fb 50%, #eef0f6 100%);
+  background-size: 200% 100%;
+  animation: st-shimmer 1.2s linear infinite;
+}
+
+/* Header layout helpers (Compact Top Bar + Clean Main Navigation) */
+.st-header-main-nav-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto; /* Logo left, nav center, hamburger right */
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .st-header-main-nav-inner {
+    /* Keep nav centered on tablet+ as the desktop menu appears */
+    grid-template-columns: auto 1fr auto;
+  }
+}

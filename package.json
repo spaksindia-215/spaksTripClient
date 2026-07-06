@@ -1,0 +1,43 @@
+{
+  "name": "client",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "insurance-certification": "ts-node --transpileOnly --project ../scripts/tbo-insurance-certification/tsconfig.json ../scripts/tbo-insurance-certification/index.ts",
+    "insurance-certification:case": "npm run insurance-certification --",
+    "tbo:cert": "node ../scripts/run-tbo-certification.js",
+    "tbo:cert-case": "npm run tbo:cert --"
+  },
+  "dependencies": {
+    "@tolgee/react": "^7.0.0",
+    "@tolgee/web": "^7.0.0",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.22.0",
+    "maplibre-gl": "^5.24.0",
+    "mongodb": "^7.2.0",
+    "next": "16.2.4",
+    "nodemailer": "^8.0.11",
+    "razorpay": "^2.9.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "toggle": "^1.0.1",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  }
+}
