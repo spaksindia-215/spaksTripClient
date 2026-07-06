@@ -10,11 +10,17 @@ type Props = {
   guest: HotelGuest;
   onChange: (guest: HotelGuest) => void;
   errors?: Partial<Record<keyof HotelGuest, string>>;
+  // Errors for additionalAdultPans, one entry per extra adult (index 0 = 2nd adult).
+  additionalPanErrors?: (string | undefined)[];
   showAge?: boolean;
   guestNationality?: string;
   hotelCountry?: string;
   isLeadPassenger?: boolean;
-  preBookPanMandatory?: boolean; // From PreBook response - TBO requirement
+  // Number of PANs this room must collect, per PreBook's ValidationInfo
+  // (panMandatory + panCountRequired), distributed across rooms/adults by the
+  // parent page. 0 = no PAN field at all for this room. 1 = lead guest only.
+  // >1 = lead guest + (panSlots - 1) additional-adult PAN fields.
+  panSlots?: number;
   preBookPassportMandatory?: boolean; // From PreBook response - TBO requirement
   preBookCorporateBookingAllowed?: boolean; // From PreBook response - TBO corporate booking option
 };
@@ -24,11 +30,12 @@ export default function GuestDetailsForm({
   guest,
   onChange,
   errors = {},
+  additionalPanErrors = [],
   showAge = false,
   guestNationality = "IN",
   hotelCountry = "India",
   isLeadPassenger = true,
-  preBookPanMandatory = false,
+  panSlots = 0,
   preBookPassportMandatory = false,
   preBookCorporateBookingAllowed = false,
 }: Props) {
@@ -65,6 +72,15 @@ export default function GuestDetailsForm({
     onChange({
       ...guest,
       pan: e.target.value.toUpperCase(),
+    });
+  };
+
+  const handleAdditionalPanChange = (slot: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = [...(guest.additionalAdultPans ?? [])];
+    next[slot] = e.target.value.toUpperCase();
+    onChange({
+      ...guest,
+      additionalAdultPans: next,
     });
   };
 
@@ -106,12 +122,12 @@ export default function GuestDetailsForm({
     });
   };
 
-  // Determine identity requirements based on:
-  // 1. Nationality and destination (nationality validation logic)
-  // 2. PreBook response flags (TBO requirements)
-  // Use OR logic: if either source says it's required, it's required
+  // Passport requirement is nationality/destination-driven (unchanged, out of
+  // scope for this fix). PAN requirement comes solely from panSlots, which the
+  // parent page derives from PreBook's ValidationInfo — never from nationality.
   const identityReq = isLeadPassenger ? getIdentityRequirement(guestNationality, hotelCountry) : null;
-  const panRequired = (identityReq?.panRequired || preBookPanMandatory);
+  const panRequired = panSlots >= 1;
+  const additionalAdultPanCount = Math.max(0, panSlots - 1);
   const passportRequired = (identityReq?.passportRequired || preBookPassportMandatory);
 
   const titleError = errors.title;
@@ -232,84 +248,99 @@ export default function GuestDetailsForm({
         </div>
       )}
 
-      {/* Identity Documents (conditional, only for lead passenger) */}
-      {isLeadPassenger && (panRequired || passportRequired) && (
+      {/* PAN (per PreBook's ValidationInfo — shown for this room whenever it
+          was allocated at least one PAN slot, regardless of lead/nationality) */}
+      {panRequired && (
+        <div className="mt-4 pt-4 border-t border-border-soft">
+          <p className="text-[11px] text-blue-700 bg-blue-50 rounded px-3 py-2 mb-3">
+            ℹ PAN is mandatory per TBO Hotel API requirements for this booking
+          </p>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={`guest-pan-${roomNumber}`} className="text-[13px] font-medium text-ink">
+              PAN <span className="text-danger-600">*</span>
+            </label>
+            <Input
+              id={`guest-pan-${roomNumber}`}
+              value={guest.pan ?? ""}
+              onChange={handlePanChange}
+              placeholder="E.g., AAAPN5055K"
+              error={errors.pan}
+              hint={errors.pan ? undefined : "10 characters (5 letters, 4 digits, 1 letter)"}
+            />
+          </div>
+
+          {/* Additional adults in this room — only rendered up to this room's
+              allocated PAN slot count (panSlots - 1), never for every adult. */}
+          {Array.from({ length: additionalAdultPanCount }, (_, slot) => (
+            <div className="flex flex-col gap-1 mt-3" key={slot}>
+              <label htmlFor={`guest-pan-${roomNumber}-adult-${slot + 2}`} className="text-[13px] font-medium text-ink">
+                PAN — Adult {slot + 2} <span className="text-danger-600">*</span>
+              </label>
+              <Input
+                id={`guest-pan-${roomNumber}-adult-${slot + 2}`}
+                value={guest.additionalAdultPans?.[slot] ?? ""}
+                onChange={handleAdditionalPanChange(slot)}
+                placeholder="E.g., AAAPN5055K"
+                error={additionalPanErrors[slot]}
+                hint={additionalPanErrors[slot] ? undefined : "10 characters (5 letters, 4 digits, 1 letter)"}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Passport (conditional, only for lead passenger — unchanged) */}
+      {isLeadPassenger && passportRequired && (
         <div className="mt-4 pt-4 border-t border-border-soft">
           <p className="text-[12px] font-medium text-ink-muted mb-3">
             {identityReq?.reason || "Identity document required per hotel requirements"}
           </p>
-          {preBookPanMandatory && !identityReq?.panRequired && (
-            <p className="text-[11px] text-blue-700 bg-blue-50 rounded px-3 py-2 mb-3">
-              ℹ PAN is mandatory per TBO Hotel API requirements for this booking
-            </p>
-          )}
           {preBookPassportMandatory && !identityReq?.passportRequired && (
             <p className="text-[11px] text-blue-700 bg-blue-50 rounded px-3 py-2 mb-3">
               ℹ Passport is mandatory per TBO Hotel API requirements for this booking
             </p>
           )}
-
-          {/* PAN */}
-          {panRequired && (
+          <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <label htmlFor={`guest-pan-${roomNumber}`} className="text-[13px] font-medium text-ink">
-                PAN <span className="text-danger-600">*</span>
+              <label htmlFor={`guest-passport-${roomNumber}`} className="text-[13px] font-medium text-ink">
+                Passport Number <span className="text-danger-600">*</span>
               </label>
               <Input
-                id={`guest-pan-${roomNumber}`}
-                value={guest.pan ?? ""}
-                onChange={handlePanChange}
-                placeholder="E.g., AAAPN5055K"
-                error={errors.pan}
-                hint={errors.pan ? undefined : "10 characters (5 letters, 4 digits, 1 letter)"}
+                id={`guest-passport-${roomNumber}`}
+                value={guest.passport ?? ""}
+                onChange={handlePassportChange}
+                placeholder="Passport number"
+                error={errors.passport}
               />
             </div>
-          )}
 
-          {/* Passport */}
-          {passportRequired && (
-            <div className="flex flex-col gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label htmlFor={`guest-passport-${roomNumber}`} className="text-[13px] font-medium text-ink">
-                  Passport Number <span className="text-danger-600">*</span>
+                <label htmlFor={`guest-passport-issue-${roomNumber}`} className="text-[13px] font-medium text-ink">
+                  Issue Date <span className="text-danger-600">*</span>
                 </label>
                 <Input
-                  id={`guest-passport-${roomNumber}`}
-                  value={guest.passport ?? ""}
-                  onChange={handlePassportChange}
-                  placeholder="Passport number"
-                  error={errors.passport}
+                  id={`guest-passport-issue-${roomNumber}`}
+                  type="date"
+                  value={guest.passportIssueDate ?? ""}
+                  onChange={handlePassportIssueDateChange}
+                  error={errors.passportIssueDate}
                 />
               </div>
-
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor={`guest-passport-issue-${roomNumber}`} className="text-[13px] font-medium text-ink">
-                    Issue Date <span className="text-danger-600">*</span>
-                  </label>
-                  <Input
-                    id={`guest-passport-issue-${roomNumber}`}
-                    type="date"
-                    value={guest.passportIssueDate ?? ""}
-                    onChange={handlePassportIssueDateChange}
-                    error={errors.passportIssueDate}
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor={`guest-passport-exp-${roomNumber}`} className="text-[13px] font-medium text-ink">
-                    Expiry Date <span className="text-danger-600">*</span>
-                  </label>
-                  <Input
-                    id={`guest-passport-exp-${roomNumber}`}
-                    type="date"
-                    value={guest.passportExpDate ?? ""}
-                    onChange={handlePassportExpDateChange}
-                    error={errors.passportExpDate}
-                  />
-                </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor={`guest-passport-exp-${roomNumber}`} className="text-[13px] font-medium text-ink">
+                  Expiry Date <span className="text-danger-600">*</span>
+                </label>
+                <Input
+                  id={`guest-passport-exp-${roomNumber}`}
+                  type="date"
+                  value={guest.passportExpDate ?? ""}
+                  onChange={handlePassportExpDateChange}
+                  error={errors.passportExpDate}
+                />
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

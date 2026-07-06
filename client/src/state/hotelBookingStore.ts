@@ -10,8 +10,13 @@ export type HotelGuest = {
   firstName: string; // 2-25 chars, no special characters
   lastName: string; // 2-25 chars, no special characters
   age?: number; // Optional; required for child passengers
-  // Identity documents (TBO requirement based on nationality and destination)
-  pan?: string; // Required: Indian nationals booking international hotels
+  // Identity documents — required only when PreBook's ValidationInfo says so
+  // (see HotelPreBookInfo.panMandatory / passportMandatory), never inferred
+  // from nationality or destination.
+  pan?: string; // This room's lead guest PAN
+  // Extra PAN(s) for additional adults in this room, beyond the lead, needed
+  // to satisfy PreBook's panCountRequired. Index 0 = 2nd adult in the room, etc.
+  additionalAdultPans?: string[];
   passport?: string; // Required: Foreign nationals booking domestic hotels
   passportIssueDate?: string; // ISO format: YYYY-MM-DD
   passportExpDate?: string; // ISO format: YYYY-MM-DD
@@ -30,6 +35,10 @@ export type HotelPreBookInfo = {
   supplements?: Array<{ index: string; type: string; description: string; price: number; currency: string }>;
   netAmount: number;
   panMandatory: boolean;
+  // Exact number of PANs TBO requires for this booking (0 when panMandatory is
+  // false). Authoritative source: PreBook's top-level ValidationInfo node.
+  // Missing on bookings persisted before this field existed — default to 0.
+  panCountRequired: number;
   passportMandatory: boolean;
   corporateBookingAllowed: boolean; // TBO flag: whether corporate booking is allowed for this room
   paxNameMinLength: number;

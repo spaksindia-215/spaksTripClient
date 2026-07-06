@@ -27,6 +27,7 @@ function buildGuestList(roomCount: number, existingGuests: HotelGuest[] = []): H
       lastName: guest.lastName ?? "",
       age: guest.age,
       pan: guest.pan,
+      additionalAdultPans: guest.additionalAdultPans,
       passport: guest.passport,
       passportIssueDate: guest.passportIssueDate,
       passportExpDate: guest.passportExpDate,
@@ -37,6 +38,32 @@ function buildGuestList(roomCount: number, existingGuests: HotelGuest[] = []): H
     firstName: "",
     lastName: "",
   }));
+}
+
+// Adults-per-room distribution — must match the remainder-distribution used in
+// searchHolidays/verify-payment so PAN slots line up with the actual TBO
+// passenger count per room.
+function adultsPerRoomDistribution(totalAdults: number, roomCount: number): number[] {
+  let adultsRemaining = totalAdults;
+  return Array.from({ length: roomCount }, (_, roomIdx) => {
+    const roomsLeft = roomCount - roomIdx;
+    const roomAdults = Math.ceil(adultsRemaining / roomsLeft);
+    adultsRemaining -= roomAdults;
+    return roomAdults;
+  });
+}
+
+// How many of this room's adults need a PAN, given the total PANs TBO
+// requires (panCountRequired) and how many have already been allocated to
+// earlier rooms. PreBook's panCountRequired is the sole source of truth —
+// never assume every adult needs one.
+function panSlotsPerRoom(roomAdultCounts: number[], panCountRequired: number): number[] {
+  let remaining = Math.max(0, panCountRequired);
+  return roomAdultCounts.map((roomAdults) => {
+    const slots = Math.min(roomAdults, remaining);
+    remaining -= slots;
+    return slots;
+  });
 }
 
 export default function HotelGuestPage() {
@@ -77,6 +104,7 @@ function GuestInner() {
   const [insurance, setInsurance] = useState(() => current?.addOns.insurance ?? false);
   const [submitting, setSubmitting] = useState(false);
   const [guestErrors, setGuestErrors] = useState<Array<Partial<Record<keyof HotelGuest, string>>>>([]);
+  const [additionalPanErrors, setAdditionalPanErrors] = useState<Array<(string | undefined)[]>>([]);
   const [sessionStatus, setSessionStatus] = useState(() =>
     current ? validateSession(current.sessionExpiresAt) : null
   );
@@ -122,6 +150,12 @@ function GuestInner() {
 
   if (!current) return null;
 
+  // PAN requirement comes solely from PreBook's ValidationInfo — distribute
+  // panCountRequired across rooms/adults in the same order TBO will see them.
+  const panCountRequired = current.preBook?.panCountRequired ?? 0;
+  const roomAdultCounts = adultsPerRoomDistribution(current.adults, current.rooms);
+  const roomPanSlots = panSlotsPerRoom(roomAdultCounts, panCountRequired);
+
   const updateGuest = (i: number, updatedGuest: HotelGuest) => {
     setLocalGuests((prev) => prev.map((g, idx) => (idx === i ? updatedGuest : g)));
     // Clear error for this guest when user edits
@@ -130,13 +164,16 @@ function GuestInner() {
 
   const validateGuests = (): boolean => {
     const errors: Array<Partial<Record<keyof HotelGuest, string>>> = [];
+    const nextAdditionalPanErrors: Array<(string | undefined)[]> = [];
     const guestNationality = current?.guestNationality ?? "IN";
     const hotelCountry = current?.hotel.country;
+    const preBookPassportMandatory = current?.preBook?.passportMandatory || false;
 
     for (let i = 0; i < guests.length; i++) {
       const guest = guests[i];
       const guestErr: Partial<Record<keyof HotelGuest, string>> = {};
       const isLeadPassenger = i === 0;
+      const panSlots = roomPanSlots[i] ?? 0;
 
       // Validate title
       if (!guest.title) {
@@ -161,31 +198,37 @@ function GuestInner() {
         guestErr.age = ageValidation.error;
       }
 
-      // Validate identity documents for lead passenger
-      // Rules: Respect BOTH nationality-based rules AND PreBook response requirements
+      // PAN validation: driven solely by PreBook's ValidationInfo (panCountRequired),
+      // never by nationality. This room's guest supplies a PAN only if this room
+      // was allocated at least one PAN slot; additional adults in the room supply
+      // their own PAN up to that room's slot count.
+      if (panSlots >= 1) {
+        const panVal = validatePAN(guest.pan ?? "");
+        if (!panVal.valid) {
+          guestErr.pan = panVal.error;
+        }
+      }
+
+      const roomAdditionalPanErrors: (string | undefined)[] = [];
+      for (let slot = 0; slot < panSlots - 1; slot++) {
+        const pan = guest.additionalAdultPans?.[slot] ?? "";
+        const panVal = validatePAN(pan);
+        roomAdditionalPanErrors[slot] = panVal.valid ? undefined : panVal.error;
+      }
+      nextAdditionalPanErrors[i] = roomAdditionalPanErrors;
+
+      // Corporate PAN validation: required when corporate booking is selected (lead guest only)
+      if (isLeadPassenger && guest.isCorporate) {
+        const corpPanVal = validateCorporatePAN(guest.corporatePan ?? "");
+        if (!corpPanVal.valid) {
+          guestErr.corporatePan = corpPanVal.error;
+        }
+      }
+
+      // Passport validation: required if nationality rules OR PreBook says mandatory
+      // (lead guest only — unchanged from prior behavior, out of scope for this fix)
       if (isLeadPassenger) {
         const identityReq = getIdentityRequirement(guestNationality, hotelCountry);
-        const preBookPanMandatory = current?.preBook?.panMandatory || false;
-        const preBookPassportMandatory = current?.preBook?.passportMandatory || false;
-
-        // PAN validation: required if nationality rules OR PreBook says mandatory
-        const panRequired = identityReq.panRequired || preBookPanMandatory;
-        if (panRequired) {
-          const panVal = validatePAN(guest.pan ?? "");
-          if (!panVal.valid) {
-            guestErr.pan = panVal.error;
-          }
-        }
-
-        // Corporate PAN validation: required when corporate booking is selected
-        if (guest.isCorporate) {
-          const corpPanVal = validateCorporatePAN(guest.corporatePan ?? "");
-          if (!corpPanVal.valid) {
-            guestErr.corporatePan = corpPanVal.error;
-          }
-        }
-
-        // Passport validation: required if nationality rules OR PreBook says mandatory
         const passportRequired = identityReq.passportRequired || preBookPassportMandatory;
         if (passportRequired) {
           const passportVal = validatePassport(guest.passport ?? "");
@@ -209,6 +252,8 @@ function GuestInner() {
       errors.push(guestErr);
     }
 
+    setAdditionalPanErrors(nextAdditionalPanErrors);
+
     // Check for duplicate first names
     const duplicateCheck = validateNoDuplicateFirstNames(guests);
     if (!duplicateCheck.valid) {
@@ -216,7 +261,10 @@ function GuestInner() {
       return false;
     }
 
-    const hasErrors = errors.some((e) => Object.keys(e).length > 0);
+    const hasAdditionalPanErrors = nextAdditionalPanErrors.some((roomErrs) =>
+      roomErrs.some((e) => e !== undefined),
+    );
+    const hasErrors = errors.some((e) => Object.keys(e).length > 0) || hasAdditionalPanErrors;
     if (hasErrors) {
       setGuestErrors(errors);
       toast.push({ title: "Please fix errors in guest details", tone: "warn" });
@@ -334,10 +382,11 @@ function GuestInner() {
                         guest={g}
                         onChange={(updatedGuest) => updateGuest(i, updatedGuest)}
                         errors={guestErrors[i]}
+                        additionalPanErrors={additionalPanErrors[i]}
                         guestNationality={current?.guestNationality}
                         hotelCountry={current?.hotel.country}
                         isLeadPassenger={i === 0}
-                        preBookPanMandatory={current?.preBook?.panMandatory}
+                        panSlots={roomPanSlots[i] ?? 0}
                         preBookPassportMandatory={current?.preBook?.passportMandatory}
                         preBookCorporateBookingAllowed={current?.preBook?.corporateBookingAllowed}
                       />

@@ -183,6 +183,10 @@ export async function POST(request: NextRequest) {
       lastName: string;
       age?: number;
       pan?: string;
+      // PAN for additional adults in this room, beyond the lead — needed to
+      // satisfy PreBook's ValidationInfo.PanCountRequired without duplicating
+      // the lead's PAN across every passenger.
+      additionalAdultPans?: string[];
       passport?: string;
       passportIssueDate?: string;
       passportExpDate?: string;
@@ -389,12 +393,17 @@ export async function POST(request: NextRequest) {
     //
     // Additional adult slots beyond the lead are filled with the lead's own
     // name so the count satisfies TBO's validation. Only the lead passenger
-    // matters for check-in; the duplicates are a TBO API formality.
-    // ── Build TBO roomsDetails ───────────────────────────────────────────────
+    // matters for check-in; the name duplication is a TBO API formality.
     //
-    // PAN and passport must be propagated to ALL adult passengers: TBO validates
-    // PAN count against all adults (PanCountRequired), not just the lead.
-    // Children are separate passengers (PaxType 2) with their ages.
+    // PAN is NOT duplicated across passengers. PreBook's ValidationInfo
+    // (PanMandatory + PanCountRequired) determines exactly how many real PANs
+    // were collected: one on the room's lead guest (guest.pan) plus, for rooms
+    // with multiple adults, one per additional adult in guest.additionalAdultPans
+    // (collected by the guest form up to that room's allocated PAN slot count).
+    // Passengers beyond the collected PANs simply get no PAN — the app never
+    // assumes every adult needs one.
+    // Children are separate passengers (PaxType 2) with their ages and never
+    // require PAN.
     let adultsRemaining = totalAdults;
     let childrenRemaining = totalChildren;
     let childAgeOffset = 0;
@@ -419,20 +428,21 @@ export async function POST(request: NextRequest) {
           passportIssueDate: lead.passportIssueDate || undefined,
           passportExpDate: lead.passportExpDate || undefined,
         },
-        // Additional adult slots — PAN and passport propagated to every adult.
-        ...Array.from({ length: roomAdults - 1 }, () => ({
+        // Additional adult slots — each gets its own collected PAN (if any),
+        // never a copy of the lead's PAN.
+        ...Array.from({ length: roomAdults - 1 }, (_, slot) => ({
           title: lead.title as "Mr" | "Mrs" | "Ms",
           firstName: lead.firstName,
           lastName: lead.lastName,
           paxType: 1 as const,
           leadPassenger: false,
           age: undefined as number | undefined,
-          pan: lead.pan || undefined,
+          pan: lead.additionalAdultPans?.[slot] || undefined,
           passportNo: lead.passport || undefined,
           passportIssueDate: lead.passportIssueDate || undefined,
           passportExpDate: lead.passportExpDate || undefined,
         })),
-        // Child passengers — PaxType 2, Age required by TBO.
+        // Child passengers — PaxType 2, Age required by TBO. Never require PAN.
         ...Array.from({ length: roomChildren }, () => {
           const age = childrenAges[childAgeOffset++] ?? 0;
           return {
