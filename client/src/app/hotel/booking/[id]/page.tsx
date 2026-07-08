@@ -23,6 +23,14 @@ interface BookingRoomSupplement {
   currency: string;
 }
 
+interface BookingRoomSupplement {
+  index: string;
+  type: string;
+  description: string;
+  price: number;
+  currency: string;
+}
+
 interface BookingDetail {
   bookingId: number;
   bookingRefNo: string;

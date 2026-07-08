@@ -87,14 +87,19 @@ function maskToken(value: unknown): string {
 }
 
 async function authenticate(): Promise<string> {
-  const userName = process.env.TBO_USER_NAME;
-  const password = process.env.TBO_PASSWORD;
+  // Hardcoded TBO Air credentials. The deploy host mangles special chars ('#','$')
+  // in env values (they arrive escaped/corrupted), so the live password is set
+  // directly here. Acceptable because only our whitelisted IP can authenticate with
+  // TBO. Revert to env (TBO_AIR_PASSWORD*) and rotate the password if the IP
+  // whitelist widens or the repo is ever shared/made public.
+  const userName = process.env.TBO_AIR_USERNAME;
+  const password = "Sp@k#12D$";
   const endUserIp = process.env.TBO_END_USER_IP ?? "1.1.1.1";
-  const clientId = process.env.TBO_CLIENT_ID ?? "ApiIntegrationNew";
+  const clientId = process.env.TBO_CLIENT_ID ;
 
   if (!userName || !password) {
     throw new Error(
-      "TBO credentials not configured. Set TBO_USER_NAME and TBO_PASSWORD in .env.local",
+      "TBO Air credentials not configured. Set TBO_AIR_USERNAME and TBO_AIR_PASSWORD.",
     );
   }
 
