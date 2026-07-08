@@ -82,7 +82,9 @@ interface TboGetChangeRequestStatusResult {
 }
 
 interface TboGetChangeRequestStatusResponse {
-  GetChangeRequestStatusResponse?: TboGetChangeRequestStatusResult;
+  // TBO's sample JSON wraps the result as "HotelChangeRequestStatusResult"
+  // (see Hotel_Api_Info/hotelsendchange_json.html) — not "GetChangeRequestStatusResponse".
+  HotelChangeRequestStatusResult?: TboGetChangeRequestStatusResult;
 }
 
 // ─── Public input / output shapes ────────────────────────────────────────────
@@ -226,7 +228,7 @@ export async function tboGetChangeRequestStatus(
     );
   }
 
-  const r = data.GetChangeRequestStatusResponse;
+  const r = data.HotelChangeRequestStatusResult;
 
   logResponse("Hotel GetChangeRequestStatus", res.status, {
     ChangeRequestStatus: r?.ChangeRequestStatus,
