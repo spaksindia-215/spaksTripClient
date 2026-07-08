@@ -181,6 +181,7 @@ function HotelDetailInner() {
         paxNameMaxLength: firstRoom.paxNameMaxLength,
         lastVoucherDate: firstRoom.lastVoucherDate,
         lastCancellationDeadline: firstRoom.lastCancellationDeadline,
+        isRefundable: firstRoom.isRefundable,
       };
 
       // Detect price change: compare Search price vs PreBook price

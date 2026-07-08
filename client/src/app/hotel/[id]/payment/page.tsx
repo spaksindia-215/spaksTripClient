@@ -88,6 +88,15 @@ function PaymentInner() {
     if (!current) router.replace("/hotel");
   }, [current, router]);
 
+  // TBO rejects Book with IsVoucherBooking=false ("Hold") on non-refundable /
+  // restricted rates ("Booking Under Cancellation can only be vouchered").
+  // Force immediate vouchering for such rates so we never send a Hold request
+  // TBO will reject.
+  const holdAllowed = current?.preBook?.isRefundable !== false;
+  useEffect(() => {
+    if (!holdAllowed) setBookingOption("voucher");
+  }, [holdAllowed]);
+
   if (!current) return null;
 
   const totalPaise = Math.round(current.totalPrice * 100);
@@ -145,6 +154,8 @@ function PaymentInner() {
           data.data.bookingRefNo ||
             data.data.bookingId?.toString() ||
             booking.id,
+          typeof data.data.bookingId === "number" ? data.data.bookingId : undefined,
+          typeof data.data.voucherStatus === "boolean" ? data.data.voucherStatus : undefined,
         );
         toast.push({
           title: "Booking confirmed!",
@@ -430,39 +441,53 @@ function PaymentInner() {
                   Booking Option
                 </h2>
                 <div className="flex flex-col gap-3">
-                  <label
-                    className="flex items-start gap-3 p-3 rounded-lg bg-white border-2 cursor-pointer transition-colors"
-                    style={{
-                      borderColor:
-                        bookingOption === "hold"
-                          ? "rgb(59,130,246)"
-                          : "rgb(229,231,235)",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="booking-option"
-                      value="hold"
-                      checked={bookingOption === "hold"}
-                      onChange={() => setBookingOption("hold")}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <p className="text-[13px] font-semibold text-ink">
-                        Hold Booking
-                      </p>
-                      <p className="text-[12px] text-ink-soft mt-1">
-                        Keep booking on hold. Generate voucher later before the
-                        deadline.
-                      </p>
-                      {current.preBook?.lastVoucherDate && (
-                        <p className="text-[11px] text-blue-700 mt-2 font-medium">
-                          Generate voucher by:{" "}
-                          {current.preBook.lastVoucherDate}
+                  {holdAllowed ? (
+                    <label
+                      className="flex items-start gap-3 p-3 rounded-lg bg-white border-2 cursor-pointer transition-colors"
+                      style={{
+                        borderColor:
+                          bookingOption === "hold"
+                            ? "rgb(59,130,246)"
+                            : "rgb(229,231,235)",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="booking-option"
+                        value="hold"
+                        checked={bookingOption === "hold"}
+                        onChange={() => setBookingOption("hold")}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <p className="text-[13px] font-semibold text-ink">
+                          Hold Booking
                         </p>
-                      )}
+                        <p className="text-[12px] text-ink-soft mt-1">
+                          Keep booking on hold. Generate voucher later before the
+                          deadline.
+                        </p>
+                        {current.preBook?.lastVoucherDate && (
+                          <p className="text-[11px] text-blue-700 mt-2 font-medium">
+                            Generate voucher by:{" "}
+                            {current.preBook.lastVoucherDate}
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  ) : (
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border-2 border-amber-200">
+                      <div className="flex-1">
+                        <p className="text-[13px] font-semibold text-amber-900">
+                          Hold Booking not available
+                        </p>
+                        <p className="text-[12px] text-amber-800 mt-1">
+                          This rate is non-refundable and must be confirmed immediately.
+                          TBO does not allow holding this booking for later vouchering.
+                        </p>
+                      </div>
                     </div>
-                  </label>
+                  )}
 
                   <label
                     className="flex items-start gap-3 p-3 rounded-lg bg-white border-2 cursor-pointer transition-colors"
