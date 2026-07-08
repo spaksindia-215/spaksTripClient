@@ -37,8 +37,16 @@ function ConfirmationInner() {
     );
   }
 
-  const { hotel, room, checkIn, checkOut, nights, rooms, guests, contact, addOns, totalPrice, bookingReference, confirmedAt, preBook } = current;
+  const { hotel, room, checkIn, checkOut, nights, rooms, guests, contact, addOns, totalPrice, bookingReference, confirmedAt, preBook, bookingId, isVoucherBooking, voucherStatus } = current;
   const supplements = preBook?.supplements ?? room.supplements;
+
+  // Hold bookings (isVoucherBooking=false) are booked with TBO and, in most
+  // cases, automatically vouchered right after Book (see verify-payment
+  // route). This panel only shows when that automatic voucher attempt did
+  // NOT already succeed — voucherStatus !== true covers both "failed" and
+  // "unknown/not yet run". Never shown for immediate-voucher bookings
+  // (isVoucherBooking=true), which TBO vouchers as part of Book itself.
+  const needsVoucher = isVoucherBooking === false && bookingId != null && voucherStatus !== true;
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-muted">
@@ -154,6 +162,31 @@ function ConfirmationInner() {
               )}
             </div>
           </div>
+
+          {/* Hold booking: voucher already generated automatically */}
+          {isVoucherBooking === false && voucherStatus === true && (
+            <div className="rounded-xl bg-success-50 border border-success-500/30 p-5 shadow-(--shadow-xs) mb-4">
+              <h2 className="text-[15px] font-bold text-success-700 mb-1">✓ Voucher Generated</h2>
+              <p className="text-[13px] text-success-600">
+                Your booking has been vouchered and confirmed with the hotel.
+              </p>
+            </div>
+          )}
+
+          {/* Hold booking: voucher not yet generated */}
+          {needsVoucher && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-5 shadow-(--shadow-xs) mb-4">
+              <h2 className="text-[15px] font-bold text-amber-900 mb-2">⏸ Booking on Hold — Voucher Not Yet Generated</h2>
+              <p className="text-[13px] text-amber-800 mb-4">
+                You chose to hold this booking. Generate the voucher before the deadline to confirm it with the hotel.
+              </p>
+              <Link href={`/hotel/booking/${bookingId}`}>
+                <Button variant="accent" size="lg" fullWidth>
+                  Generate Voucher
+                </Button>
+              </Link>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">

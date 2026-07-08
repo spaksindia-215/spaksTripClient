@@ -46,6 +46,11 @@ export type HotelPreBookInfo = {
   // Hold/Voucher deadlines from TBO PreBook
   lastVoucherDate?: string; // When voucher must be generated (for hold bookings)
   lastCancellationDeadline?: string; // When booking can no longer be cancelled
+  // TBO PreBook.Rooms[].IsRefundable — non-refundable/restricted rates are
+  // frequently rejected by TBO's Book API when IsVoucherBooking=false (Hold),
+  // with "Booking Under Cancellation can only be vouchered". Used to hide the
+  // Hold option for such rates so we never send a Hold request TBO will reject.
+  isRefundable?: boolean;
 };
 
 export type HotelBooking = {
@@ -69,10 +74,19 @@ export type HotelBooking = {
   createdAt: string; // When booking started (Search was performed)
   confirmedAt?: string;
   bookingReference?: string;
+  // Numeric TBO BookingId from the Book/Hold Book response — needed to call
+  // GenerateVoucher or GetBookingDetail later. Optional for backward
+  // compatibility with bookings persisted before this field existed.
+  bookingId?: number;
   // PreBook data
   preBook?: HotelPreBookInfo;
   // Booking type: true = generate voucher immediately, false = hold booking
   isVoucherBooking?: boolean; // TBO Hold functionality: false = hold, true = voucher now
+  // True once a voucher exists for this booking — either because Book itself
+  // vouchered it (isVoucherBooking=true) or because the automatic post-Book
+  // GenerateVoucher call succeeded for a Hold booking. Undefined means unknown
+  // (e.g. Hold booking whose auto-voucher attempt failed or hasn't run yet).
+  voucherStatus?: boolean;
   // Session management (TBO session valid for 40 minutes from Search)
   sessionStartedAt: string; // ISO timestamp when Search was performed
   sessionExpiresAt: string; // ISO timestamp when session expires (40 min from search)
@@ -99,7 +113,7 @@ type Actions = {
   setContact: (contact: ContactInfo) => void;
   setAddOns: (addOns: Partial<HotelBooking["addOns"]>) => void;
   setPreBook: (preBook: HotelPreBookInfo, netAmount: number) => void;
-  confirm: (ref: string) => void;
+  confirm: (ref: string, bookingId?: number, voucherStatus?: boolean) => void;
   clearCurrent: () => void;
 };
 
@@ -218,7 +232,7 @@ export const useHotelBookingStore = create<State & Actions>()(
             },
           };
         }),
-      confirm: (ref) =>
+      confirm: (ref, bookingId, voucherStatus) =>
         set((s) => {
           if (!s.current) return s;
           const done: HotelBooking = {
@@ -226,6 +240,8 @@ export const useHotelBookingStore = create<State & Actions>()(
             status: "CONFIRMED",
             confirmedAt: new Date().toISOString(),
             bookingReference: ref,
+            ...(bookingId !== undefined ? { bookingId } : {}),
+            ...(voucherStatus !== undefined ? { voucherStatus } : {}),
           };
           return { current: done, bookings: [done, ...s.bookings].slice(0, 30) };
         }),

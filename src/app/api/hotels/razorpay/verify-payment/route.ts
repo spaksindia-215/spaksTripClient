@@ -6,6 +6,7 @@ import type {
   HotelBookInput,
   HotelBookRoomDetails,
 } from "@/lib/adapters/tbo/hotel/book";
+import { tboGenerateVoucher } from "@/lib/adapters/tbo/hotel/generateVoucher";
 import { TboBookingFailedError, TboError } from "@/lib/adapters/tbo/errors";
 import { logRequest, logResponse, logError } from "@/lib/adapters/tbo/log";
 import { buildTwoTierPricing, type TwoTierPricing } from "@/lib/server/agentMarkup";
@@ -38,6 +39,12 @@ interface HotelPaymentRecord {
   tboBookingRefNo?:   string | null;
   tboConfirmationNo?: string | null;
   tboInvoiceNumber?:  string | null;
+  // Set only for Hold bookings (IsVoucherBooking=false) after an automatic
+  // post-Book GenerateVoucher attempt. Absent for Voucher-now bookings, which
+  // TBO already vouchers as part of Book itself (no separate call needed).
+  voucherStatus?:     boolean;
+  voucherGeneratedAt?: Date;
+  voucherError?:      string;
   tboError?:          string;
   tboFailureReason?:  "explicit_failure" | "timeout" | "network_error" | "unknown";
   // Raw TBO Book error envelope, preserved for diagnostics only (not used in any control flow).
@@ -295,6 +302,11 @@ export async function POST(request: NextRequest) {
             confirmationNo: existing.tboConfirmationNo,
             invoiceNumber: existing.tboInvoiceNumber,
             bookingStatus: "Confirmed",
+            ...(existing.voucherGeneratedAt
+              ? { voucherGenerated: true, voucherStatus: existing.voucherStatus }
+              : existing.voucherError
+                ? { voucherGenerated: false, voucherError: existing.voucherError }
+                : {}),
           },
         });
       }
@@ -546,6 +558,49 @@ export async function POST(request: NextRequest) {
       },
     );
 
+    // ── Auto-voucher Hold bookings ───────────────────────────────────────────
+    // Per TBO's Book documentation: "To book and voucher in one go, IsVoucherBooking
+    // should be true. In this case, there is no need to call GenerateVoucher
+    // separately." So this only runs for Hold bookings (IsVoucherBooking=false),
+    // which TBO requires to be vouchered via a separate call before
+    // LastCancellationDeadline. Skipped entirely if Book didn't actually confirm
+    // (no BookingId, price change, etc.) — voucher generation must never run
+    // against an unconfirmed booking. Best-effort: a voucher failure here must
+    // NOT affect the booking record, trigger a refund, or fail this request —
+    // the booking itself already succeeded at TBO. The customer can still
+    // retry vouchering later from /hotel/booking/[id].
+    let voucherResult: Awaited<ReturnType<typeof tboGenerateVoucher>> | null = null;
+    let voucherErrorMessage: string | undefined;
+    if (
+      bookInput.isVoucherBooking === false &&
+      tboResult.bookingStatus === "Confirmed" &&
+      typeof tboResult.bookingId === "number" &&
+      tboResult.bookingId > 0
+    ) {
+      try {
+        voucherResult = await tboGenerateVoucher({ bookingId: tboResult.bookingId });
+        await col.updateOne(
+          { razorpayOrderId, razorpayPaymentId },
+          {
+            $set: {
+              voucherStatus:      voucherResult.voucherStatus,
+              voucherGeneratedAt: new Date(),
+            },
+          },
+        );
+      } catch (voucherErr) {
+        voucherErrorMessage = voucherErr instanceof Error ? voucherErr.message : String(voucherErr);
+        logError("GENERATE_VOUCHER", voucherErr, {
+          bookingId: tboResult.bookingId,
+          razorpayPaymentId,
+        });
+        await col.updateOne(
+          { razorpayOrderId, razorpayPaymentId },
+          { $set: { voucherError: voucherErrorMessage } },
+        );
+      }
+    }
+
     // Create a BookingModel entry for settlement reporting and customer dashboard (non-fatal: fire-and-forget).
     // For agent bookings (twoTierPricing), include full pricing; for customers, use simplified pricing.
     // Hotel bookings are marked as "completed" since they are immediately confirmed by TBO.
@@ -576,7 +631,25 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: tboResult });
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...tboResult,
+        // Present only for Hold bookings where auto-voucher ran (see above).
+        // Absent for Voucher-now bookings — tboResult.voucherStatus already
+        // reflects the voucher generated as part of Book itself.
+        ...(voucherResult
+          ? {
+              voucherGenerated: true,
+              voucherStatus: voucherResult.voucherStatus,
+              voucherConfirmationNo: voucherResult.confirmationNo,
+              voucherInvoiceNumber: voucherResult.invoiceNumber,
+            }
+          : voucherErrorMessage
+            ? { voucherGenerated: false, voucherError: voucherErrorMessage }
+            : {}),
+      },
+    });
 
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
