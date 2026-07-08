@@ -467,10 +467,10 @@ function PaymentInner() {
                           Keep booking on hold. Generate voucher later before the
                           deadline.
                         </p>
-                        {current.preBook?.lastVoucherDate && (
+                        {(current.preBook?.lastCancellationDeadline ?? current.preBook?.lastVoucherDate) && (
                           <p className="text-[11px] text-blue-700 mt-2 font-medium">
                             Generate voucher by:{" "}
-                            {current.preBook.lastVoucherDate}
+                            {current.preBook?.lastCancellationDeadline ?? current.preBook?.lastVoucherDate}
                           </p>
                         )}
                       </div>

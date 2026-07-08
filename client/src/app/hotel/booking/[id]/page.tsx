@@ -91,7 +91,12 @@ function BookingInner() {
   if (loading) return null;
   if (!booking) return null;
 
-  const deadlineInfo = getVoucherDeadlineInfo(booking.lastVoucherDate);
+  // TBO: the Hold voucher-by deadline must track LastCancellationDeadline (the
+  // date their own systems enforce) rather than LastVoucherDate, which can
+  // diverge from it — falls back to lastVoucherDate only when TBO doesn't
+  // return a cancellation deadline at all.
+  const effectiveVoucherDeadline = booking.lastCancellationDeadline ?? booking.lastVoucherDate;
+  const deadlineInfo = getVoucherDeadlineInfo(effectiveVoucherDeadline);
   // A hotel booking is "on hold" when TBO confirmed the Book call itself but
   // has not yet generated the voucher (IsVoucherBooking=false at Book time).
   const isCancelled = booking.bookingStatus === "Cancelled";
@@ -108,7 +113,7 @@ function BookingInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingId: booking.bookingId,
-          lastVoucherDate: booking.lastVoucherDate,
+          lastVoucherDate: effectiveVoucherDeadline,
         }),
       });
 

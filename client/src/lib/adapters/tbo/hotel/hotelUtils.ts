@@ -120,18 +120,23 @@ export interface TboSearchCancelPolicy {
 function formatCancelPolicyDate(dateStr: string): string {
   if (!dateStr) return dateStr;
 
-  // TBO returns dates without timezone markers, treat as UTC per API spec
+  // TBO's cancellation/deadline dates are wall-clock values (not a UTC instant
+  // to be converted) — reformat them for display as-is. Converting to another
+  // timezone previously rolled dates like "28-12-2026 23:59:59" to "Dec 29",
+  // which TBO certification flagged as a wrong policy date.
   // Two formats observed:
   // 1. ISO 8601: "2024-04-18T00:00:00"
   // 2. DD-MM-YYYY: "15-04-2024 00:00:00"
-  // Convert to IST (UTC+5:30) for display to Indian users
   try {
     let date: Date;
 
     if (dateStr.includes('T')) {
-      // ISO 8601 format — add Z to mark as UTC
-      const withZ = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
-      date = new Date(withZ);
+      // ISO 8601 format — strip any zone marker and parse as local wall-clock.
+      const naive = dateStr.replace(/Z$|[+-]\d{2}:?\d{2}$/, '');
+      const [datePart, timePart = '00:00:00'] = naive.split('T');
+      const [year, month, day] = datePart.split('-').map((n) => parseInt(n, 10));
+      const [hours, minutes, seconds] = timePart.split(':').map((n) => parseInt(n, 10));
+      date = new Date(year, month - 1, day, hours, minutes, seconds || 0);
     } else if (dateStr.includes('-') && dateStr.includes(':')) {
       // DD-MM-YYYY HH:MM:SS format — parse manually
       const parts = dateStr.split(' ');
@@ -145,12 +150,13 @@ function formatCancelPolicyDate(dateStr: string): string {
       const minutes = parseInt(timeParts[1], 10);
       const seconds = parseInt(timeParts[2], 10);
 
-      date = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+      date = new Date(year, month, day, hours, minutes, seconds);
     } else {
       return dateStr;
     }
 
-    // Format using IST timezone for display
+    // Format the wall-clock value directly — no timezone conversion, since
+    // the parsed Date's local fields already equal TBO's original values.
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -158,7 +164,6 @@ function formatCancelPolicyDate(dateStr: string): string {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'Asia/Kolkata',
     });
   } catch {
     return dateStr;
