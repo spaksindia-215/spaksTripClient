@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
@@ -19,6 +19,31 @@ export default function HotelConfirmationPage() {
 
 function ConfirmationInner() {
   const { current } = useHotelBookingStore();
+
+  // The store's totalPrice is fixed at PreBook time (before payment) and is
+  // never updated with TBO's post-Book confirmed amount. Fetch the live
+  // GetBookingDetail amount — the same authoritative NetAmount the
+  // /hotel/booking/[id] page already displays — so the voucher shown here
+  // matches TBO exactly. Falls back to the store value if the booking isn't
+  // reachable yet (e.g. Hold booking not yet vouchered, or fetch failure).
+  const [confirmedNetAmount, setConfirmedNetAmount] = useState<number | null>(null);
+  const bookingIdForFetch = current?.bookingId;
+
+  useEffect(() => {
+    if (bookingIdForFetch == null) return;
+    let cancelled = false;
+    fetch(`/api/hotels/booking/${bookingIdForFetch}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && typeof json?.data?.netAmount === "number") {
+          setConfirmedNetAmount(json.data.netAmount);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingIdForFetch]);
 
   if (!current || current.status !== "CONFIRMED") {
     return (
@@ -39,6 +64,9 @@ function ConfirmationInner() {
 
   const { hotel, room, checkIn, checkOut, nights, rooms, guests, contact, addOns, totalPrice, bookingReference, confirmedAt, preBook, bookingId, isVoucherBooking, voucherStatus } = current;
   const supplements = preBook?.supplements ?? room.supplements;
+  // TBO's confirmed GetBookingDetail amount is authoritative; only fall back
+  // to the store's PreBook-time value if that fetch hasn't resolved.
+  const displayedTotal = confirmedNetAmount ?? totalPrice;
 
   // Hold bookings (isVoucherBooking=false) are booked with TBO and, in most
   // cases, automatically vouchered right after Book (see verify-payment
@@ -153,7 +181,7 @@ function ConfirmationInner() {
               {addOns.insurance && <div className="flex justify-between"><span className="text-ink-soft">Travel insurance</span><span className="font-semibold text-success-600">✓</span></div>}
               <div className="flex justify-between border-t border-border-soft pt-2 mt-1">
                 <span className="font-bold text-ink">Total Paid</span>
-                <span className="font-extrabold text-[16px] text-ink">{formatINR(totalPrice)}</span>
+                <span className="font-extrabold text-[16px] text-ink">{formatINR(displayedTotal)}</span>
               </div>
               {confirmedAt && (
                 <p className="text-[11px] text-ink-muted mt-1">

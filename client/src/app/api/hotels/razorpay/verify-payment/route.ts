@@ -7,7 +7,8 @@ import type {
   HotelBookRoomDetails,
 } from "@/lib/adapters/tbo/hotel/book";
 import { tboGenerateVoucher } from "@/lib/adapters/tbo/hotel/generateVoucher";
-import { TboBookingFailedError, TboError } from "@/lib/adapters/tbo/errors";
+import { TboBookingFailedError, TboBookOutcomeUnknownError, TboError } from "@/lib/adapters/tbo/errors";
+import { verifyBookingStatusAfterTimeout } from "@/lib/adapters/tbo/hotel/bookingRecovery";
 import { logRequest, logResponse, logError } from "@/lib/adapters/tbo/log";
 import { buildTwoTierPricing, type TwoTierPricing } from "@/lib/server/agentMarkup";
 import { recordCustomerBooking } from "@/lib/server/recordCustomerBooking";
@@ -653,18 +654,24 @@ export async function POST(request: NextRequest) {
 
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    // Explicit failure: TBO's own Book response said Status=0/BookFailed (or
+    // a business-rule error). Certification requires GetBookingDetail is
+    // NEVER called for this case — checked by message text set exclusively
+    // by book.ts's BookFailed branch, unchanged from before.
     const isExplicitFailure = msg.includes("explicitly failed") || msg.includes("status_code=0");
-    const isTimeout =
-      !isExplicitFailure &&
-      (msg.includes("timed out") ||
-        msg.includes("timeout") ||
-        msg.includes("120"));
+    // Timeout: the 120s cutoff was hit — TBO may or may not have created the
+    // booking.
+    const isTimeout = !isExplicitFailure && msg.includes("timed out after 120 seconds");
+    // Ambiguous outcome: network/transport error, HTTP 5xx, or malformed
+    // response from the Book call itself — see TboBookOutcomeUnknownError.
+    // Also genuinely unknown whether TBO created the booking.
+    const isAmbiguousOutcome = !isExplicitFailure && !isTimeout && e instanceof TboBookOutcomeUnknownError;
     const isPriceChanged =
       e instanceof TboBookingFailedError &&
       (msg.toLowerCase().includes("price") ||
         msg.toLowerCase().includes("verify"));
     const tboFailureReason: "explicit_failure" | "timeout" | "unknown" =
-      isExplicitFailure ? "explicit_failure" : isTimeout ? "timeout" : "unknown";
+      isExplicitFailure ? "explicit_failure" : (isTimeout || isAmbiguousOutcome) ? "timeout" : "unknown";
 
     // Raw TBO error envelope, preserved for diagnostics only — does not affect
     // isExplicitFailure/isTimeout/isPriceChanged or any refund/retry decision above.
@@ -681,11 +688,43 @@ export async function POST(request: NextRequest) {
       razorpayPaymentId,
       razorpayOrderId,
       isTimeout,
+      isAmbiguousOutcome,
       isPriceChanged,
       tboErrorCode,
       tboErrorMessage,
       tboTraceId,
     });
+
+    // ── Verification before refund (timeout / ambiguous outcome only) ───────
+    // Per TBO's 120s-cutoff guidance: when the outcome is unknown (timeout or
+    // an ambiguous Book failure), call GetBookingDetail to check whether TBO
+    // actually created the booking before treating it as failed. Explicit
+    // failures (isExplicitFailure) skip this entirely, per TBO's "no calling
+    // in failed booking case" requirement. GetBookingDetail requires a
+    // bookingId/confirmationNo/traceId — none of those are available for a
+    // pure timeout or transport-level failure (Book never returned a body),
+    // so verification is only attempted when we actually have a TraceId
+    // (e.g. an ambiguous outcome where TBO did return a parsed BookResult).
+    let reconciledConfirmed: Awaited<ReturnType<typeof verifyBookingStatusAfterTimeout>>["booking"] | undefined;
+    if ((isTimeout || isAmbiguousOutcome) && tboTraceId) {
+      const recovery = await verifyBookingStatusAfterTimeout({
+        traceId: tboTraceId,
+        clientReferenceId,
+        tboFailureReason: "timeout",
+      });
+
+      console.log(
+        `\n[RZP ${ts()}] → RECOVERY_VERIFY (GetBookingDetail)` +
+          `\n  razorpayPaymentId: ${razorpayPaymentId}` +
+          `\n  tboTraceId: ${tboTraceId}` +
+          `\n  found: ${recovery.found}` +
+          `\n  bookingStatus: ${recovery.booking?.bookingStatus ?? "n/a"}`,
+      );
+
+      if (recovery.found && recovery.booking?.bookingStatus === "Confirmed") {
+        reconciledConfirmed = recovery.booking;
+      }
+    }
 
     // If we failed before reaching the DB/TBO stage (bad signature, missing
     // fields), there is no payment record to update — bail early.
@@ -698,6 +737,48 @@ export async function POST(request: NextRequest) {
     try {
       const db = await getDb();
       const col = db.collection<HotelPaymentRecord>("hotel_payment_records");
+
+      // ── Reconciled via GetBookingDetail: TBO actually confirmed it ──────────
+      // The Book call looked like a timeout/ambiguous failure, but recovery
+      // verification found the booking was really created at TBO. Record it
+      // as confirmed and skip the refund entirely — never refund a booking
+      // that exists.
+
+      if (reconciledConfirmed) {
+        await col.updateOne(
+          { razorpayOrderId, razorpayPaymentId },
+          {
+            $set: {
+              status: "tbo_confirmed",
+              tboBookingId: reconciledConfirmed.bookingId,
+              tboBookingRefNo: reconciledConfirmed.bookingRefNo,
+              tboConfirmationNo: reconciledConfirmed.confirmationNo,
+              tboInvoiceNumber: reconciledConfirmed.invoiceNo,
+              tboFailureReason: undefined,
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        console.log(
+          `\n[RZP ${ts()}] ✓ BOOK_HOTEL RECONCILED via GetBookingDetail` +
+            `\n  razorpayPaymentId: ${razorpayPaymentId}` +
+            `\n  tboBookingId: ${reconciledConfirmed.bookingId}` +
+            `\n  tboBookingRefNo: ${reconciledConfirmed.bookingRefNo}`,
+        );
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            bookingId: reconciledConfirmed.bookingId,
+            bookingRefNo: reconciledConfirmed.bookingRefNo,
+            confirmationNo: reconciledConfirmed.confirmationNo,
+            invoiceNumber: reconciledConfirmed.invoiceNo,
+            bookingStatus: "Confirmed",
+            voucherStatus: reconciledConfirmed.voucherStatus,
+          },
+        });
+      }
 
       // ── TBO timeout ───────────────────────────────────────────────────────
 
@@ -722,7 +803,7 @@ export async function POST(request: NextRequest) {
             `\n  reason: 120s timeout exceeded` +
             `\n  razorpayPaymentId: ${razorpayPaymentId}` +
             `\n  clientReferenceId: ${clientReferenceId}` +
-            `\n  action: recovery_via_GetBookingDetail`,
+            `\n  action: ${tboTraceId ? "recovery_via_GetBookingDetail_not_confirmed" : "no_traceid_available_recovery_skipped"}`,
         );
 
         return NextResponse.json(
