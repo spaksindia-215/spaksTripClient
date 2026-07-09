@@ -18,6 +18,7 @@ import {
   type NavbarVisibility,
   type PlatformMarkupConfig,
   type PlatformMarkupRule,
+  type AgentWalletView,
 } from "@/lib/adminClient";
 import type { UserRole } from "@/lib/authClient";
 import PackageTemplateModal from "@/components/superadmin/PackageTemplateModal";
@@ -55,6 +56,7 @@ const STATUS_TONE = {
   active: "success",
   pending: "warn",
   rejected: "danger",
+  suspended: "danger",
 } as const;
 
 const LISTING_TYPE_FILTERS: Array<{ value: AdminListingType | "all"; label: string }> = [
@@ -140,6 +142,14 @@ export default function SuperadminPage() {
   const [creditTarget, setCreditTarget] = useState<AdminUser | null>(null);
   const [creditValue, setCreditValue] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Pre-funded wallet — superadmin top-up / adjustment
+  const [walletTarget, setWalletTarget] = useState<AdminUser | null>(null);
+  const [walletView, setWalletView] = useState<AgentWalletView | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [movementType, setMovementType] = useState<"TOPUP" | "ADJUSTMENT">("TOPUP");
+  const [movementAmount, setMovementAmount] = useState("");
+  const [movementNote, setMovementNote] = useState("");
 
   const [navVisibility, setNavVisibility] = useState<NavbarVisibility>({});
   const [navLoading, setNavLoading] = useState(false);
@@ -322,6 +332,26 @@ export default function SuperadminPage() {
     }
   };
 
+  const toggleSuspend = async (user: AdminUser) => {
+    const suspending = user.status === "active";
+    if (suspending && !window.confirm(`Suspend ${user.name}? Their storefront goes offline immediately; this is reversible.`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const updated = suspending
+        ? await adminClient.suspendAgent(user.id)
+        : await adminClient.unsuspendAgent(user.id);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      toast.push({ title: suspending ? "Agent suspended" : "Agent reinstated", tone: "success" });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Update failed";
+      toast.push({ title: "Error", description: message, tone: "danger" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const openCredit = (user: AdminUser) => {
     setCreditTarget(user);
     setCreditValue(user.creditLimit != null ? String(user.creditLimit) : "");
@@ -346,6 +376,57 @@ export default function SuperadminPage() {
       setCreditTarget(null);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "Update failed";
+      toast.push({ title: "Error", description: message, tone: "danger" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openWallet = async (user: AdminUser) => {
+    setWalletTarget(user);
+    setWalletView(null);
+    setMovementType("TOPUP");
+    setMovementAmount("");
+    setMovementNote("");
+    setWalletLoading(true);
+    try {
+      setWalletView(await adminClient.getAgentWallet(user.id));
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Could not load wallet";
+      toast.push({ title: "Error", description: message, tone: "danger" });
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const confirmMovement = async () => {
+    if (!walletTarget) return;
+    const amount = Number(movementAmount);
+    if (!Number.isFinite(amount) || amount === 0) {
+      toast.push({ title: "Invalid amount", description: "Enter a non-zero ₹ amount.", tone: "warn" });
+      return;
+    }
+    if (movementType === "TOPUP" && amount < 0) {
+      toast.push({ title: "Invalid top-up", description: "Top-ups must be positive. Use Adjustment for corrections.", tone: "warn" });
+      return;
+    }
+    if (!movementNote.trim()) {
+      toast.push({ title: "Note required", description: "Add an audit note explaining this movement.", tone: "warn" });
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await adminClient.recordWalletMovement(walletTarget.id, {
+        type: movementType,
+        amount,
+        note: movementNote.trim(),
+      });
+      toast.push({ title: "Wallet updated", tone: "success" });
+      setWalletView(await adminClient.getAgentWallet(walletTarget.id));
+      setMovementAmount("");
+      setMovementNote("");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Movement failed";
       toast.push({ title: "Error", description: message, tone: "danger" });
     } finally {
       setActionLoading(false);
@@ -856,19 +937,41 @@ export default function SuperadminPage() {
                           <td className="px-4 py-3 text-ink-soft">{ROLE_LABELS[user.role]}</td>
                           <td className="px-4 py-3 text-ink-soft">{user.phone}</td>
                           <td className="px-4 py-3">
-                            <Badge tone={STATUS_TONE[user.status]} size="sm">
-                              {user.status}
-                            </Badge>
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge tone={STATUS_TONE[user.status]} size="sm">
+                                {user.status}
+                              </Badge>
+                              {(user.role === "agent" || user.role === "b2b_agent") &&
+                              (user.status === "active" || user.status === "suspended") ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSuspend(user)}
+                                  disabled={actionLoading}
+                                  className="text-left text-[12px] font-medium text-ink-muted hover:text-danger-600 hover:underline disabled:opacity-50"
+                                >
+                                  {user.status === "active" ? "Suspend" : "Reinstate"}
+                                </button>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-ink-soft">
                             {user.role === "agent" || user.role === "b2b_agent" ? (
-                              <button
-                                type="button"
-                                onClick={() => openCredit(user)}
-                                className="font-medium text-brand-700 hover:underline"
-                              >
-                                {user.creditLimit != null ? formatInr(user.creditLimit) : "Set limit"}
-                              </button>
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openCredit(user)}
+                                  className="text-left font-medium text-brand-700 hover:underline"
+                                >
+                                  {user.creditLimit != null ? formatInr(user.creditLimit) : "Set limit"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openWallet(user)}
+                                  className="text-left text-[12px] font-medium text-ink-muted hover:text-brand-700 hover:underline"
+                                >
+                                  Wallet & top-up
+                                </button>
+                              </div>
                             ) : (
                               "—"
                             )}
@@ -957,6 +1060,93 @@ export default function SuperadminPage() {
           placeholder={`${CREDIT_MIN} – ${CREDIT_MAX}`}
           hint={`Between ${formatInr(CREDIT_MIN)} and ${formatInr(CREDIT_MAX)}.`}
         />
+      </Modal>
+
+      {/* Wallet & top-up modal */}
+      <Modal
+        open={Boolean(walletTarget)}
+        onClose={() => setWalletTarget(null)}
+        title={`Wallet · ${walletTarget?.name ?? ""}`}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setWalletTarget(null)}>
+              Close
+            </Button>
+            <Button type="button" variant="primary" size="sm" loading={actionLoading} onClick={confirmMovement}>
+              Record {movementType === "TOPUP" ? "top-up" : "adjustment"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg bg-surface-muted px-4 py-3">
+            <p className="text-[12px] text-ink-muted">Current balance</p>
+            <p className="mt-0.5 text-[20px] font-bold text-ink">
+              {walletLoading ? "…" : formatInr(walletView?.wallet.balance ?? 0)}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            {(["TOPUP", "ADJUSTMENT"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setMovementType(t)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors ${
+                  movementType === t
+                    ? "border-brand-600 bg-brand-50 text-brand-700"
+                    : "border-border-soft text-ink-soft hover:bg-surface-muted"
+                }`}
+              >
+                {t === "TOPUP" ? "Top-up" : "Adjustment"}
+              </button>
+            ))}
+          </div>
+
+          <Input
+            id="wallet-amount"
+            label={movementType === "TOPUP" ? "Top-up amount (₹)" : "Adjustment (₹, negative to debit)"}
+            type="number"
+            inputMode="numeric"
+            value={movementAmount}
+            onChange={(e) => setMovementAmount(e.target.value)}
+            placeholder={movementType === "TOPUP" ? "10000" : "-500"}
+          />
+          <Input
+            id="wallet-note"
+            label="Audit note (required)"
+            value={movementNote}
+            onChange={(e) => setMovementNote(e.target.value)}
+            placeholder="e.g. Bank transfer ref #12345"
+          />
+
+          {walletView && walletView.ledger.items.length > 0 ? (
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Recent history</p>
+              <div className="max-h-52 overflow-y-auto rounded-lg border border-border-soft">
+                <table className="w-full text-left text-[12px]">
+                  <tbody>
+                    {walletView.ledger.items.map((e) => (
+                      <tr key={e.id} className="border-b border-border-soft last:border-0">
+                        <td className="px-3 py-2 text-ink-soft">{e.type.replace("_", " ")}</td>
+                        <td className="px-3 py-2 text-ink-muted">{e.meta?.note ?? "—"}</td>
+                        <td
+                          className={`px-3 py-2 text-right font-mono font-semibold ${
+                            e.amount >= 0 ? "text-success-600" : "text-danger-600"
+                          }`}
+                        >
+                          {e.amount >= 0 ? "+" : "−"}
+                          {formatInr(Math.abs(e.amount))}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-ink">{formatInr(e.balanceAfter)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </Modal>
 
       {/* Reject modal */}

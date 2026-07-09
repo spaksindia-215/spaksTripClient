@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { useAgentBranding } from "@/lib/agentBranding";
 
 type LogoProps = {
   variant?: "header" | "footer";
@@ -23,21 +26,20 @@ const LOGO_STYLES = {
 
 export default function Logo({ variant = "footer", className }: LogoProps) {
   const styles = LOGO_STYLES[variant];
+  const { companyName, logo, logoDark } = useAgentBranding();
+
+  // On an agent subdomain, show the agent's logo + name; on apex, the platform's.
+  const isAgent = Boolean(companyName || logo);
+  const src = (variant === "footer" ? logoDark ?? logo : logo) ?? "/logo.png";
+  const alt = isAgent ? `${companyName ?? "Agency"} logo` : "Spakstrip logo";
+  const label = isAgent ? `${companyName ?? "Agency"} home` : "Spakstrip home";
 
   return (
-  <Link
-    href="/"
-    aria-label="Spakstrip home"
-    className={cn(styles.link, className)}
-  >
-    <div className={styles.frame}>
-      <img
-        src="/logo.png"
-        alt="Spakstrip logo"
-        className={styles.image}
-      />
-    </div>
-  </Link>
-);
+    <Link href="/" aria-label={label} className={cn(styles.link, className)}>
+      <div className={styles.frame}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={alt} className={styles.image} />
+      </div>
+    </Link>
+  );
 }
-

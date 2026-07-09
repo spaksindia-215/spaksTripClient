@@ -39,6 +39,22 @@ export type PlatformMarkupResponse = {
 type ListResponse = { items: AdminUser[] };
 type UserResponse = { user: AdminUser };
 
+// ── Pre-funded agent wallet (settlement) ─────────────────────────────────────
+export type WalletLedgerEntry = {
+  id: string;
+  type: "TOPUP" | "BOOKING_DEBIT" | "REFUND" | "ADJUSTMENT" | "CUSTOMER_CREDIT";
+  amount: number; // signed ₹: + credits, − debits
+  balanceAfter: number;
+  bookingId?: string | null;
+  meta?: { note?: string; actor?: string } & Record<string, unknown>;
+  createdAt: string;
+};
+
+export type AgentWalletView = {
+  wallet: { balance: number; currency: string };
+  ledger: { items: WalletLedgerEntry[]; total: number; page: number; pageSize: number };
+};
+
 // Admin endpoints never participate in user-JWT refresh — skipRefresh avoids a
 // pointless /api/auth/refresh round-trip on 401 (which just means "no admin session").
 export const adminClient = {
@@ -94,6 +110,40 @@ export const adminClient = {
       skipRefresh: true,
     });
     return res.user;
+  },
+
+  async suspendAgent(id: string): Promise<AdminUser> {
+    const res = await api<UserResponse>(`/api/admin/users/${id}/suspend`, {
+      method: "POST",
+      skipRefresh: true,
+    });
+    return res.user;
+  },
+
+  async unsuspendAgent(id: string): Promise<AdminUser> {
+    const res = await api<UserResponse>(`/api/admin/users/${id}/unsuspend`, {
+      method: "POST",
+      skipRefresh: true,
+    });
+    return res.user;
+  },
+
+  async getAgentWallet(id: string, page = 1): Promise<AgentWalletView> {
+    return api<AgentWalletView>(`/api/admin/users/${id}/wallet?page=${page}&pageSize=10`, {
+      skipRefresh: true,
+    });
+  },
+
+  async recordWalletMovement(
+    id: string,
+    input: { type: "TOPUP" | "ADJUSTMENT"; amount: number; note: string },
+  ): Promise<WalletLedgerEntry> {
+    const res = await api<{ entry: WalletLedgerEntry }>(`/api/admin/users/${id}/wallet`, {
+      method: "POST",
+      body: input,
+      skipRefresh: true,
+    });
+    return res.entry;
   },
 
   async getNavbarSettings(): Promise<NavbarVisibility> {

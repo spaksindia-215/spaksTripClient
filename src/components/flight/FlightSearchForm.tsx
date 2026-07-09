@@ -412,7 +412,7 @@ export default function FlightSearchForm({ variant = "hero" }: Props) {
                 <span
                   className={cn(
                     "grid h-7 w-7 shrink-0 place-items-center rounded-full",
-                    active ? "bg-brand-500 text-white" : "bg-surface-muted text-ink-muted",
+                    active ? "bg-agent-primary-600 text-agent-primary-fg" : "bg-surface-muted text-ink-muted",
                   )}
                   aria-hidden
                 >
@@ -430,7 +430,7 @@ export default function FlightSearchForm({ variant = "hero" }: Props) {
                   className={cn(
                     "absolute top-2 right-2 grid h-4 w-4 place-items-center rounded-full border transition-colors",
                     active
-                      ? "border-brand-500 bg-brand-500 text-white"
+                      ? "border-agent-primary-600 bg-agent-primary-600 text-agent-primary-fg"
                       : "border-border bg-white",
                   )}
                   aria-hidden

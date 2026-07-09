@@ -16,10 +16,11 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const VARIANTS: Record<Variant, string> = {
+  // primary/secondary follow the agent theme (agent-primary-* == brand-* on apex).
   primary:
-    "bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 disabled:bg-brand-200",
+    "bg-agent-primary-600 text-agent-primary-fg hover:bg-agent-primary-700 active:bg-agent-primary-800 disabled:bg-agent-primary-200",
   secondary:
-    "bg-brand-50 text-brand-700 hover:bg-brand-100 active:bg-brand-200 disabled:bg-surface-sunken disabled:text-ink-subtle",
+    "bg-agent-primary-50 text-agent-primary-700 hover:bg-agent-primary-100 active:bg-agent-primary-200 disabled:bg-surface-sunken disabled:text-ink-subtle",
   ghost:
     "bg-transparent text-ink hover:bg-surface-muted active:bg-surface-sunken",
   outline:

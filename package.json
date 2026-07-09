@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "insurance-certification": "ts-node --transpileOnly --project ../scripts/tbo-insurance-certification/tsconfig.json ../scripts/tbo-insurance-certification/index.ts",
     "insurance-certification:case": "npm run insurance-certification --",
     "tbo:cert": "node ../scripts/run-tbo-certification.js",
@@ -25,6 +26,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "toggle": "^1.0.1",
+    "zod": "^4.4.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -38,6 +40,7 @@
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.0",
     "typescript": "^5"
   }
 }

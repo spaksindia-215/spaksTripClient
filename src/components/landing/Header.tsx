@@ -567,7 +567,7 @@ export default function Header() {
       <div className="hidden sm:block px-3 pt-3 sm:px-6">
         <div
           ref={utilityBarRef}
-          className="mx-auto flex max-w-7xl items-center justify-between rounded-full bg-gradient-to-r from-brand-900 via-[#0b1f4d] to-brand-900 px-5 py-2.5 text-[13px] text-white shadow-[0_6px_20px_-8px_rgba(11,31,77,0.45)] sm:px-7"
+          className="mx-auto flex max-w-7xl items-center justify-between rounded-full bg-gradient-to-r from-agent-primary-900 via-agent-primary-800 to-agent-primary-900 px-5 py-2.5 text-[13px] text-white shadow-[0_6px_20px_-8px_rgba(11,31,77,0.45)] sm:px-7"
         >
           <Logo variant="header" />
 
@@ -706,7 +706,7 @@ export default function Header() {
       </div>
 
       {/* ── MOBILE COMPACT BAR (< sm): logo + locale selectors + auth ── */}
-      <div ref={mobileBarRef} className="flex items-center justify-between gap-1 px-2 py-2.5 bg-gradient-to-r from-brand-900 via-[#0b1f4d] to-brand-900 sm:hidden min-h-[52px]">
+      <div ref={mobileBarRef} className="flex items-center justify-between gap-1 px-2 py-2.5 bg-gradient-to-r from-agent-primary-900 via-agent-primary-800 to-agent-primary-900 sm:hidden min-h-[52px]">
         <Logo variant="header" />
 
         {/* Locale selectors (Country, Currency, Language) - compact layout */}
@@ -827,7 +827,7 @@ export default function Header() {
             const pillClass = cn(
               "group flex flex-shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 min-w-[60px] snap-center transition-all duration-200 relative",
               active
-                ? "bg-brand-600 text-white shadow-[0_4px_12px_rgba(30,79,199,0.3)] scale-105"
+                ? "bg-agent-primary-600 text-agent-primary-fg shadow-[0_4px_12px_rgba(30,79,199,0.3)] scale-105"
                 : "text-ink hover:bg-blue-50",
             );
 
@@ -1437,7 +1437,7 @@ function LoginPill({ label, href }: { label: string; href: string }) {
     <motion.div whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.97 }} className="flex-shrink-0">
       <Link
         href={href}
-        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-700 px-2 py-1.5 text-[11px] font-semibold text-white shadow-[0_4px_14px_rgba(37,99,235,0.35)] transition-shadow duration-200 hover:shadow-[0_6px_18px_rgba(37,99,235,0.45)] sm:px-4 sm:py-1.5 sm:text-[12px] sm:gap-1.5"
+        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-agent-primary-500 to-agent-primary-700 px-2 py-1.5 text-[11px] font-semibold text-white shadow-[0_4px_14px_rgba(37,99,235,0.35)] transition-shadow duration-200 hover:shadow-[0_6px_18px_rgba(37,99,235,0.45)] sm:px-4 sm:py-1.5 sm:text-[12px] sm:gap-1.5"
         aria-label="Login or Register"
       >
         <svg viewBox="0 0 24 24" width={14} height={14} aria-hidden fill="currentColor" className="sm:w-[14px] sm:h-[14px]">

@@ -11,8 +11,14 @@ import TopHotelDeals from "@/components/landing/TopHotelDeals";
 import WhyChooseUs from "@/components/landing/WhyChooseUs";
 import { HomepageSchema } from "@/lib/seo/schemas";
 import { generateBaseMetadata } from "@/lib/seo/metadata";
+import { buildAgentAwareMetadata } from "@/lib/theme/pageMetadata";
 
-export const metadata: Metadata = generateBaseMetadata();
+// Agent-subdomain aware: on an agent subdomain this returns the branded
+// title/OG (see buildAgentAwareMetadata); on apex it's identical to the
+// static generateBaseMetadata() this replaces.
+export async function generateMetadata(): Promise<Metadata> {
+  return buildAgentAwareMetadata(generateBaseMetadata());
+}
 
 export default function Home() {
   return (

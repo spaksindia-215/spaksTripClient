@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tboFareQuote } from "@/lib/adapters/tbo/flight/fareQuote";
 import { TboFareExpiredError } from "@/lib/adapters/tbo/errors";
-import { buildFarePricer } from "@/lib/server/agentMarkup";
+import { buildFarePricer, AgentPricingUnavailableError } from "@/lib/server/agentMarkup";
 import { flightProxyEnabled, forwardToRailway } from "@/lib/tboProxy";
 import { signPriceToken } from "@/lib/priceToken";
 
@@ -52,6 +52,12 @@ export async function GET(
   } catch (e) {
     if (e instanceof TboFareExpiredError) {
       return err("Fare has expired. Please search again.", 410);
+    }
+    // Fail CLOSED: this is the final quote the customer pays against — an
+    // unresolvable agent markup must never silently fall back to the raw
+    // TBO fare (undercharges relative to what the agent configured).
+    if (e instanceof AgentPricingUnavailableError) {
+      return err("Pricing temporarily unavailable — please retry.", 503);
     }
     const message = e instanceof Error ? e.message : "FareQuote failed";
     return err(message, 500);

@@ -4,7 +4,9 @@ import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/ui/Toast";
 import TranslationProvider from "@/i18n/TranslationProvider";
-import { AgentBrandingProvider, type AgentBranding } from "@/lib/agentBranding";
+import { AgentBrandingProvider, ThemePreviewScope } from "@/lib/agentBranding";
+import { readAgentTheme } from "@/lib/theme/readAgentTheme";
+import { buildThemeCssVars } from "@/lib/theme/tokens";
 import { SITE_CONFIG, GOOGLE_ANALYTICS, GOOGLE_TAG_MANAGER } from "@/lib/seo/constants";
 import "./globals.css";
 
@@ -19,14 +21,26 @@ const geistMono = Geist_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const h           = await headers();
-  const companyName = h.get("x-agent-name");
+  const h = await headers();
+  const { branding } = readAgentTheme(h.get("x-agent-theme"));
 
-  if (companyName) {
+  if (branding.companyName) {
+    // Agent subdomain: brand the tab (favicon → logo → platform default) and OG.
+    const favicon = branding.favicon ?? branding.logo ?? "/logo.svg";
+    const title = `${branding.companyName} — Flights, Hotels & More`;
+    const description =
+      branding.tagline ??
+      `Book flights, hotels, and holiday packages with ${branding.companyName}.`;
     return {
-      title:       `${companyName} — Flights, Hotels & More`,
-      description: `Book flights, hotels, and holiday packages with ${companyName}.`,
-      icons:       { icon: "/logo.svg" },
+      title,
+      description,
+      icons: { icon: favicon },
+      openGraph: {
+        title,
+        description,
+        siteName: branding.companyName,
+        ...(branding.logo ? { images: [{ url: branding.logo }] } : {}),
+      },
     };
   }
 
@@ -49,20 +63,15 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const h = await headers();
+  const { branding } = readAgentTheme(h.get("x-agent-theme"));
 
-  const agentId      = h.get("x-agent-id");
-  const slug         = h.get("x-agent-slug");
-  const companyName  = h.get("x-agent-name");
-  const primaryColor = h.get("x-agent-color");
-  const logo         = h.get("x-agent-logo");
-
-  const branding: AgentBranding = { agentId, slug, companyName, primaryColor, logo };
-
-  // Override --agent-primary on the root element when on an agent subdomain.
-  // Apex domain requests have no x-agent-color header so no style is applied.
-  const agentStyle = primaryColor
-    ? ({ "--agent-primary": primaryColor } as React.CSSProperties)
-    : undefined;
+  // Derive the full CSS-var token set (primary, AA-safe fg, 50–900 scale, font)
+  // from the agent's chosen colour and inject on <html>. Apex requests have no
+  // theme header → undefined → globals.css defaults (== platform brand) stand,
+  // so apex is pixel-identical.
+  const agentStyle = buildThemeCssVars(branding.primaryColor, branding.fontKey) as
+    | React.CSSProperties
+    | undefined;
 
   return (
     <html
@@ -106,7 +115,7 @@ export default async function RootLayout({
         <ToastProvider>
           <TranslationProvider>
             <AgentBrandingProvider value={branding}>
-              {children}
+              <ThemePreviewScope>{children}</ThemePreviewScope>
             </AgentBrandingProvider>
           </TranslationProvider>
         </ToastProvider>

@@ -3,9 +3,12 @@
 import { useTranslate } from "@tolgee/react";
 import Logo from "./Logo";
 import NewsletterForm from "./NewsletterForm";
+import { useAgentBranding } from "@/lib/agentBranding";
 
 export default function Footer() {
   const { t } = useTranslate();
+  const { companyName, tagline, contactEmail, contactPhone } = useAgentBranding();
+  const isAgent = Boolean(companyName);
 
   return (
     <footer className="bg-[#F4F6F9]">
@@ -14,7 +17,7 @@ export default function Footer() {
           <div>
             <Logo variant="footer" className="h-10 w-auto"/>
             <p className="mt-6 max-w-md text-[15px] leading-relaxed text-zinc-500">
-              {t("footer.about_text")}
+              {isAgent ? tagline ?? t("footer.about_text") : t("footer.about_text")}
             </p>
 
             <div className="mt-8">
@@ -56,7 +59,7 @@ export default function Footer() {
                 <div>
                   <p className="text-zinc-500">{t("footer.customer_support")}</p>
                   <p className="font-medium text-[#0E1E3A]">
-                    +91 870 045 8818, +91 922 032 8072
+                    {isAgent && contactPhone ? contactPhone : "+91 870 045 8818, +91 922 032 8072"}
                   </p>
                 </div>
               </li>
@@ -67,7 +70,7 @@ export default function Footer() {
                 <div>
                   <p className="text-zinc-500">{t("footer.drop_email")}</p>
                   <p className="font-medium text-[#0E1E3A]">
-                    spakstrip@gmail.com
+                    {isAgent && contactEmail ? contactEmail : "spakstrip@gmail.com"}
                   </p>
                 </div>
               </li>
@@ -82,7 +85,9 @@ export default function Footer() {
 
         <div className="mt-14 flex flex-col items-start justify-between gap-5 border-t border-zinc-200 pt-6 md:flex-row md:items-center">
           <p className="text-sm text-zinc-500">
-            {t("footer.copyright")}
+            {isAgent
+              ? `© ${new Date().getFullYear()} ${companyName}. All rights reserved.`
+              : t("footer.copyright")}
           </p>
           <div className="flex items-center gap-3">
             <SocialIcon label="Facebook"><FacebookIcon /></SocialIcon>

@@ -5,15 +5,25 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api";
-import { agentClient, type AgentBranding } from "@/lib/agentClient";
+import { agentClient, type AgentBranding, type BrandFont, BRAND_FONTS } from "@/lib/agentClient";
+import { PREVIEW_MESSAGE_TYPE, type PreviewThemePayload } from "@/lib/theme/preview";
 
 const DEFAULT_COLOR = "#185FA5";
 const APEX_DOMAIN = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "spakstrip.com";
+
+const FONT_LABELS: Record<BrandFont, string> = {
+  default: "Platform default",
+  "classic-serif": "Classic serif",
+  "modern-sans": "Modern sans",
+  geometric: "Geometric",
+  humanist: "Humanist",
+};
 
 export default function AgentBrandingPage() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
   const [slug, setSlug]                     = useState<string | null>(null);
   const [copied, setCopied]                 = useState(false);
@@ -21,6 +31,7 @@ export default function AgentBrandingPage() {
   const [tagline, setTagline]               = useState("");
   const [primaryColor, setPrimaryColor]     = useState(DEFAULT_COLOR);
   const [colorHex, setColorHex]             = useState(DEFAULT_COLOR);
+  const [fontKey, setFontKey]               = useState<BrandFont>("default");
   const [contactEmail, setContactEmail]     = useState("");
   const [contactPhone, setContactPhone]     = useState("");
   const [logoPreview, setLogoPreview]       = useState<string | null>(null);
@@ -43,6 +54,7 @@ export default function AgentBrandingPage() {
       const c = b.primaryColor ?? DEFAULT_COLOR;
       setPrimaryColor(c);
       setColorHex(c);
+      setFontKey(b.fontKey ?? "default");
       setContactEmail(b.contactEmail ?? "");
       setContactPhone(b.contactPhone ?? "");
       setLogoPreview(b.logo ?? null);
@@ -102,6 +114,7 @@ export default function AgentBrandingPage() {
       fd.append("companyName", companyName);
       fd.append("tagline", tagline);
       fd.append("primaryColor", colorHex);
+      fd.append("fontKey", fontKey);
       fd.append("contactEmail", contactEmail);
       fd.append("contactPhone", contactPhone);
       if (logoFile) fd.append("logo", logoFile);
@@ -121,6 +134,37 @@ export default function AgentBrandingPage() {
       setSaving(false);
     }
   };
+
+  // Live preview: the agent's real subdomain, embedded in an iframe. Unsaved
+  // form state is postMessage'd into it (never persisted, never cached — see
+  // lib/theme/preview.ts). Requires `slug` (assigned on first save) and a
+  // browser origin — derived directly at render time (not an effect: it's a
+  // pure computation, not a side effect, so no setState-in-effect cascade).
+  const previewOrigin =
+    slug && typeof window !== "undefined"
+      ? `${window.location.protocol}//${slug}.${APEX_DOMAIN}${window.location.port ? `:${window.location.port}` : ""}`
+      : null;
+
+  const sendPreview = useCallback(() => {
+    if (!previewOrigin) return;
+    const win = previewFrameRef.current?.contentWindow;
+    if (!win) return;
+    const payload: PreviewThemePayload = {
+      companyName: companyName || null,
+      tagline: tagline || null,
+      primaryColor: /^#[0-9A-Fa-f]{6}$/.test(colorHex) ? colorHex : null,
+      fontKey,
+      contactEmail: contactEmail || null,
+      contactPhone: contactPhone || null,
+    };
+    win.postMessage({ type: PREVIEW_MESSAGE_TYPE, payload }, previewOrigin);
+  }, [previewOrigin, companyName, tagline, colorHex, fontKey, contactEmail, contactPhone]);
+
+  // Debounce so a burst of keystrokes sends one message, not one per key.
+  useEffect(() => {
+    const id = setTimeout(sendPreview, 200);
+    return () => clearTimeout(id);
+  }, [sendPreview]);
 
   if (loading) {
     return <p className="py-12 text-center text-sm text-ink-muted">Loading branding settings…</p>;
@@ -240,6 +284,19 @@ export default function AgentBrandingPage() {
         >
           Preview button colour
         </div>
+
+        <div>
+          <p className="mb-2 text-[12px] font-medium text-ink-soft">Brand font</p>
+          <select
+            value={fontKey}
+            onChange={(e) => setFontKey(e.target.value as BrandFont)}
+            className="w-full rounded-lg border border-border-soft bg-white px-3 py-2 text-[13px] text-ink"
+          >
+            {BRAND_FONTS.map((f) => (
+              <option key={f} value={f}>{FONT_LABELS[f]}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Logo */}
@@ -272,6 +329,27 @@ export default function AgentBrandingPage() {
           />
         </label>
         <p className="text-[11px] text-ink-muted">JPEG, PNG, WebP or SVG. Max 8 MB.</p>
+      </div>
+
+      {/* Live preview — unsaved edits reflected instantly, never persisted */}
+      <div className="rounded-xl border border-border-soft bg-white p-5 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[15px] font-bold text-ink">Live preview</h2>
+          <span className="text-[11px] text-ink-muted">Unsaved — not visible to customers yet</span>
+        </div>
+        {previewOrigin ? (
+          <iframe
+            ref={previewFrameRef}
+            src={previewOrigin}
+            onLoad={sendPreview}
+            title="Live branding preview"
+            className="h-[520px] w-full rounded-lg border border-border-soft"
+          />
+        ) : (
+          <p className="py-8 text-center text-[13px] text-ink-muted">
+            Preview will appear once your subdomain is ready.
+          </p>
+        )}
       </div>
 
       <Button

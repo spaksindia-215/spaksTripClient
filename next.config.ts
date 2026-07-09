@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -47,6 +48,15 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  turbopack: {
+    // Widen Turbopack's module-resolution root from client/ to the repo root
+    // so lib/server/agentMarkup.ts can import the ONE shared pricing module
+    // at server/src/lib/markupEngine.ts (pure, zero I/O) instead of
+    // duplicating its arithmetic. Turbopack refuses to resolve imports
+    // outside the project root by default — this is the documented escape
+    // hatch (no new build tooling, no workspace/monorepo restructuring).
+    root: path.join(__dirname, ".."),
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -5,6 +5,7 @@ import { TboFareExpiredError, TboValidationError, isDuplicateBookingError } from
 import { buildTwoTierPricing, type TwoTierPricing } from "@/lib/server/agentMarkup";
 import type { TboFareBreakdown } from "@/lib/adapters/tbo/types";
 import { flightProxyEnabled, forwardToRailway } from "@/lib/tboProxy";
+import { internalApiHeaders } from "@/lib/server/internalApi";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:4000";
 
@@ -18,7 +19,7 @@ async function recordFlightBooking(agentId: string, pnr: string, pricing: TwoTie
   try {
     await fetch(new URL("/api/internal/record-booking", API_BASE), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...internalApiHeaders() },
       body: JSON.stringify({ agentId, productType: "flight", pnr, ...pricing }),
     });
   } catch {
@@ -87,11 +88,18 @@ export async function POST(request: NextRequest) {
       const agentId = request.headers.get("x-agent-id");
       if (agentId) {
         const rawFare = tboFareFrom(body.fareBreakdown, body.returnFareBreakdown);
-        void buildTwoTierPricing(rawFare, "flights", request).then((pricing) => {
-          if (pricing) {
-            return recordFlightBooking(agentId, ticketResult.pnr || detail.pnr, pricing);
-          }
-        });
+        // Booking-record only — the customer already paid the TBO-locked fare
+        // from fare-quote, so a pricing-attribution failure here must not
+        // block ticket issuance. Log and move on (fire-and-forget).
+        void buildTwoTierPricing(rawFare, "flights", request)
+          .then((pricing) => {
+            if (pricing) {
+              return recordFlightBooking(agentId, ticketResult.pnr || detail.pnr, pricing);
+            }
+          })
+          .catch((e: unknown) =>
+            console.error("[ticket] booking-record pricing failed:", e instanceof Error ? e.message : String(e)),
+          );
       }
 
       return NextResponse.json({
@@ -143,11 +151,16 @@ export async function POST(request: NextRequest) {
       const fareBreakdown = (body as Record<string, unknown>).fareBreakdown as TboFareBreakdown[];
       const returnFareBreakdown = (body as Record<string, unknown>).returnFareBreakdown as TboFareBreakdown[] | undefined;
       const rawFare = tboFareFrom(fareBreakdown, returnFareBreakdown);
-      void buildTwoTierPricing(rawFare, "flights", request).then((pricing) => {
-        if (pricing) {
-          return recordFlightBooking(agentId, ticketResult.pnr || body.pnr || detail.pnr, pricing);
-        }
-      });
+      // Booking-record only — same rationale as the LCC branch above.
+      void buildTwoTierPricing(rawFare, "flights", request)
+        .then((pricing) => {
+          if (pricing) {
+            return recordFlightBooking(agentId, ticketResult.pnr || body.pnr || detail.pnr, pricing);
+          }
+        })
+        .catch((e: unknown) =>
+          console.error("[ticket] booking-record pricing failed:", e instanceof Error ? e.message : String(e)),
+        );
     }
 
     return NextResponse.json({

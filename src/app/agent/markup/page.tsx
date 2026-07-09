@@ -7,13 +7,13 @@ import Tabs from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api";
 import { agentClient, type MarkupRule, type MarkupType } from "@/lib/agentClient";
+import { applyMarkup } from "../../../../../server/src/lib/markupEngine";
 
-type Product = "flights" | "hotels" | "taxi";
+type Product = "flights" | "hotels";
 
 const PRODUCTS: Array<{ value: Product; label: string; exampleFare: number }> = [
   { value: "flights", label: "Flights", exampleFare: 4500 },
   { value: "hotels", label: "Hotels", exampleFare: 3200 },
-  { value: "taxi", label: "Taxi", exampleFare: 1200 },
 ];
 
 const TYPE_TABS: Array<{ value: MarkupType; label: string }> = [
@@ -27,15 +27,6 @@ const FLAT_MAX = 5000;
 
 function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
-}
-
-function applyMarkupPreview(fare: number, rule: MarkupRule): number {
-  const raw =
-    rule.type === "percent"
-      ? Math.round(fare * (1 + rule.value / 100))
-      : fare + rule.value;
-  if (rule.cap != null && rule.cap > 0) return Math.min(raw, fare + rule.cap);
-  return raw;
 }
 
 function validate(rule: MarkupRule): string | null {
@@ -82,7 +73,7 @@ function MarkupCard({
     cap: capStr.trim() !== "" ? Number(capStr) : undefined,
   };
 
-  const preview = applyMarkupPreview(exampleFare, currentRule);
+  const preview = applyMarkup(exampleFare, currentRule);
   const validationError = validate(currentRule);
   const isWarn =
     currentRule.type === "percent" &&
@@ -184,7 +175,6 @@ export default function AgentMarkupPage() {
   const [config, setConfig] = useState<Record<Product, MarkupRule>>({
     flights: { ...DEFAULT_RULE },
     hotels: { ...DEFAULT_RULE },
-    taxi: { ...DEFAULT_RULE },
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -198,7 +188,6 @@ export default function AgentMarkupPage() {
           setConfig({
             flights: markup.flights ?? DEFAULT_RULE,
             hotels: markup.hotels ?? DEFAULT_RULE,
-            taxi: markup.taxi ?? DEFAULT_RULE,
           });
         }
       } catch (err) {
@@ -238,7 +227,7 @@ export default function AgentMarkupPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         {PRODUCTS.map(({ value, label, exampleFare }) => (
           <MarkupCard
             key={value}
@@ -250,6 +239,11 @@ export default function AgentMarkupPage() {
           />
         ))}
       </div>
+
+      <p className="text-[12px] text-ink-muted">
+        Markup applies to priced checkouts only (flights and hotels). Enquiry-based
+        verticals like taxi are quoted directly by the operator, so no markup is set here.
+      </p>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { tboSearchFlights } from "@/lib/adapters/tbo/flight/search";
 import { TboNoResultsError, TboError } from "@/lib/adapters/tbo/errors";
 import type { TboFlightSearchInput } from "@/lib/adapters/tbo/flight/search";
-import { buildFarePricer } from "@/lib/server/agentMarkup";
+import { buildFarePricer, AgentPricingUnavailableError } from "@/lib/server/agentMarkup";
 import { flightProxyEnabled, forwardToRailway } from "@/lib/tboProxy";
 
 function err(message: string, status: number) {
@@ -56,8 +56,16 @@ export async function POST(request: NextRequest) {
 
     const result = await tboSearchFlights(body);
 
-    // Fetch markup config once, then apply synchronously per offer.
-    const priceFlight = await buildFarePricer("flights", request);
+    // Search is a listing, not a final price quote — fail OPEN if the agent's
+    // markup can't be resolved (show raw TBO fares rather than error the whole
+    // search). The fare-quote route is the actual quote step and fails CLOSED.
+    let priceFlight = (fare: number): number => fare;
+    try {
+      priceFlight = await buildFarePricer("flights", request);
+    } catch (e) {
+      if (!(e instanceof AgentPricingUnavailableError)) throw e;
+      console.error("[API /api/flights/search] agent pricing unavailable, showing raw fares:", e.message);
+    }
     for (const offer of result.offers) {
       offer.basePrice = priceFlight(offer.basePrice);
     }

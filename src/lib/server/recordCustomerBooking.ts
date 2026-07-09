@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { internalApiHeaders } from "./internalApi";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:4000";
 
@@ -33,7 +34,11 @@ export async function recordCustomerBooking(payload: RecordCustomerBookingPayloa
 
     const res = await fetch(new URL("/api/internal/record-customer-booking", API_BASE), {
       method: "POST",
-      headers: { "content-type": "application/json", ...(cookieHeader ? { cookie: cookieHeader } : {}) },
+      headers: {
+        "content-type": "application/json",
+        ...internalApiHeaders(),
+        ...(cookieHeader ? { cookie: cookieHeader } : {}),
+      },
       body: JSON.stringify(payload),
       cache: "no-store",
     });

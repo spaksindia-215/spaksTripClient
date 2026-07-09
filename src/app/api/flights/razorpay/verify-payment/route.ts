@@ -7,8 +7,10 @@ import { logError } from "@/lib/adapters/tbo/log";
 import { buildTwoTierPricing, type TwoTierPricing } from "@/lib/server/agentMarkup";
 import type { TboFareBreakdown } from "@/lib/adapters/tbo/types";
 import { sendFlightConfirmation } from "@/lib/mailer";
+import { readAgentTheme } from "@/lib/theme/readAgentTheme";
 import { flightProxyEnabled, forwardToRailway } from "@/lib/tboProxy";
 import { recordCustomerBooking } from "@/lib/server/recordCustomerBooking";
+import { internalApiHeaders } from "@/lib/server/internalApi";
 
 export const runtime = "nodejs";
 
@@ -233,9 +235,19 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Agent attribution (subdomain bookings only) ─────────────────────────
+    // Booking-record only — Razorpay payment is already captured by this
+    // point, so a pricing-attribution failure must not abort the booking;
+    // log and persist without a pricing breakdown.
     const agentId = request.headers.get("x-agent-id") ?? undefined;
     const rawFare = tboFareFrom(booking.fareBreakdown, booking.returnFareBreakdown);
-    const pricing = agentId ? await buildTwoTierPricing(rawFare, "flights", request) : null;
+    let pricing: TwoTierPricing | null = null;
+    if (agentId) {
+      try {
+        pricing = await buildTwoTierPricing(rawFare, "flights", request);
+      } catch (e) {
+        console.error(`\n[RZP ${ts()}] ⚠ agent pricing unavailable; recording booking without pricing breakdown\n  ERROR: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
 
     // ── Persist record BEFORE calling TBO (durability guarantee) ────────────
     const now = new Date();
@@ -304,6 +316,16 @@ export async function POST(request: NextRequest) {
       const origin = (booking as { validation?: { origin?: string } }).validation?.origin ?? "";
       const destination = (booking as { validation?: { destination?: string } }).validation?.destination ?? "";
       const totalAmount = Math.round(capturedPaise / 100);
+      // White-label the confirmation email when the booking came via an agent
+      // subdomain (branding travels in the x-agent-theme header from middleware).
+      const { branding } = readAgentTheme(request.headers.get("x-agent-theme"));
+      const brand = branding.companyName
+        ? {
+            companyName: branding.companyName,
+            logo: branding.logo,
+            replyTo: branding.contactEmail,
+          }
+        : undefined;
       sendFlightConfirmation({
         to: booking.contactEmail,
         pnr: result.pnr,
@@ -312,6 +334,7 @@ export async function POST(request: NextRequest) {
         destination,
         passengerNames,
         totalAmount,
+        brand,
       }).catch((e: unknown) =>
         console.error("[mailer] flight confirmation email failed:", e instanceof Error ? e.message : String(e)),
       );
@@ -321,7 +344,7 @@ export async function POST(request: NextRequest) {
     if (agentId && pricing) {
       fetch(new URL("/api/internal/record-booking", API_BASE), {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...internalApiHeaders() },
         body: JSON.stringify({ agentId, productType: "flight", pnr: result.pnr, ...pricing }),
         cache: "no-store",
       }).catch((e: unknown) => console.error("[record-booking] fire-and-forget failed:", e instanceof Error ? e.message : String(e)));

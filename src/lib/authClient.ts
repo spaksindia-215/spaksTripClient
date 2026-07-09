@@ -2,7 +2,7 @@ import { api } from "@/lib/api";
 
 export type UserRole = "customer" | "agent" | "b2b_agent" | "partner";
 
-export type UserStatus = "active" | "pending" | "rejected";
+export type UserStatus = "active" | "pending" | "rejected" | "suspended";
 
 export type ApiAuthUser = {
   id: string;

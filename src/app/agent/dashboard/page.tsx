@@ -14,6 +14,7 @@ import { useAuthStore } from "@/state/authStore";
 import {
   agentClient,
   type AgentProfile,
+  type AgentWalletLedger,
   type Booking,
   type BookingStatus,
   type ProductType,
@@ -110,6 +111,9 @@ export default function AgentDashboardPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [copied, setCopied] = useState(false);
 
+  const [ledger, setLedger] = useState<AgentWalletLedger | null>(null);
+  const [ledgerPage, setLedgerPage] = useState(1);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<{
     productType: ProductType;
@@ -143,6 +147,23 @@ export default function AgentDashboardPage() {
   }, [reloadKey]);
 
   const refresh = () => setReloadKey((k) => k + 1);
+
+  // Wallet ledger — separate effect so paging doesn't refetch bookings/profile.
+  useEffect(() => {
+    let active = true;
+    agentClient
+      .walletLedger(ledgerPage, 10)
+      .then((data) => {
+        if (active) setLedger(data);
+      })
+      .catch(() => {
+        // Non-fatal: dashboard still works without the ledger panel.
+        if (active) setLedger(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [ledgerPage, reloadKey]);
 
   const copySubdomain = (slug: string) => {
     const url = `https://${slug}.${APEX_DOMAIN}`;
@@ -339,6 +360,76 @@ export default function AgentDashboardPage() {
           <span className="font-mono font-semibold">{bookingsThisMonth(bookings)}</span> bookings this month
         </p>
       </div>
+
+      {/* Wallet ledger — settlement history (top-ups, booking debits, refunds) */}
+      {ledger && ledger.items.length > 0 ? (
+        <div className="rounded-md border border-border-soft bg-surface p-5 shadow-card">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">Wallet history</p>
+            <p className="text-[12px] text-ink-muted">
+              {ledger.total} entr{ledger.total === 1 ? "y" : "ies"}
+            </p>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide text-ink-muted">
+                  <th className="py-2 pr-4 font-semibold">Date</th>
+                  <th className="py-2 pr-4 font-semibold">Type</th>
+                  <th className="py-2 pr-4 font-semibold">Note</th>
+                  <th className="py-2 pr-4 text-right font-semibold">Amount</th>
+                  <th className="py-2 text-right font-semibold">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledger.items.map((e) => (
+                  <tr key={e.id} className="border-t border-border-soft">
+                    <td className="py-2 pr-4 whitespace-nowrap text-ink-soft">{shortDate(e.createdAt)}</td>
+                    <td className="py-2 pr-4">
+                      <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
+                        {e.type.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-ink-muted">{e.note ?? (e.bookingId ? "Booking" : "—")}</td>
+                    <td
+                      className={`py-2 pr-4 text-right font-mono font-semibold ${
+                        e.amount >= 0 ? "text-success-600" : "text-danger-600"
+                      }`}
+                    >
+                      {e.amount >= 0 ? "+" : "−"}
+                      {inr(Math.abs(e.amount))}
+                    </td>
+                    <td className="py-2 text-right font-mono text-ink">{inr(e.balanceAfter)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {ledger.total > ledger.pageSize ? (
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={ledger.page <= 1}
+                onClick={() => setLedgerPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-[12px] text-ink-muted">
+                Page {ledger.page} of {Math.max(1, Math.ceil(ledger.total / ledger.pageSize))}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={ledger.page >= Math.ceil(ledger.total / ledger.pageSize)}
+                onClick={() => setLedgerPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Booking portal */}
       {profile ? (

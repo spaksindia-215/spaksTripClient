@@ -1,19 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
+import { internalApiHeaders } from "@/lib/server/internalApi";
 
 // Configurable via env so staging domains work without a code change.
 const APEX    = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "spakstrip.com";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE   ?? "http://localhost:4000";
 
+interface AgentBrandingConfig {
+  companyName?:  string;
+  tagline?:      string;
+  primaryColor?: string;
+  logo?:         string;
+  logoDark?:     string;
+  favicon?:      string;
+  fontKey?:      string;
+  contactEmail?: string;
+  contactPhone?: string;
+}
+
 interface AgentConfigResponse {
   _id:      string;
   slug:     string;
   status:   string;
-  branding?: {
-    companyName?:  string;
-    primaryColor?: string;
-    logo?:         string;
-  };
+  branding?: AgentBrandingConfig;
 }
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
@@ -48,7 +57,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   try {
     const res = await fetch(
       `${API_BASE}/api/internal/agent-config?slug=${encodeURIComponent(slug)}`,
-      { signal: AbortSignal.timeout(3000) },
+      { signal: AbortSignal.timeout(3000), headers: internalApiHeaders() },
     );
     if (res.ok) agent = (await res.json()) as AgentConfigResponse;
   } catch {
@@ -71,12 +80,26 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
   // Forward agent identity as request headers so Server Components and API
   // route handlers can read them via next/headers or req.headers.
+  // x-agent-slug / x-agent-id are consumed by the pricer (agentMarkup.ts); the
+  // legacy scalar branding headers stay for back-compat. The full branding set
+  // (incl. logoDark, favicon, fontKey, contact) travels as one base64-JSON
+  // header so the layout can derive the theme without re-fetching.
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-agent-id",    agent._id);
   requestHeaders.set("x-agent-slug",  agent.slug);
   requestHeaders.set("x-agent-name",  agent.branding?.companyName  ?? agent.slug);
   requestHeaders.set("x-agent-color", agent.branding?.primaryColor ?? "#185FA5");
   requestHeaders.set("x-agent-logo",  agent.branding?.logo         ?? "");
+
+  const themePayload = JSON.stringify({
+    id:   agent._id,
+    slug: agent.slug,
+    branding: agent.branding ?? {},
+  });
+  // Edge-runtime safe base64 (no Buffer): encodeURIComponent first so any
+  // non-Latin1 char (e.g. an accented company name) survives btoa. The layout
+  // decodes with decodeURIComponent(atob(...)).
+  requestHeaders.set("x-agent-theme", btoa(encodeURIComponent(themePayload)));
 
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
