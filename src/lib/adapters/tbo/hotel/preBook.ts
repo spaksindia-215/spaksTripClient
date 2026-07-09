@@ -311,6 +311,7 @@ export async function tboPreBookHotel(
       ...(r.PublishedPrice !== undefined ? { PublishedPrice: r.PublishedPrice } : {}),
       LastVoucherDate: r.LastVoucherDate,
       LastCancellationDeadline: r.LastCancellationDeadline,
+      CancelPolicies: r.CancelPolicies,
     })),
   });
 

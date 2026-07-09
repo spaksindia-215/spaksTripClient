@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
@@ -10,7 +10,18 @@ import { useToast } from "@/components/ui/Toast";
 import { getVoucherDeadlineInfo } from "@/lib/adapters/tbo/hotel/voucherDeadline";
 import CancelBookingButton from "@/components/accommodation/CancelBookingButton";
 
-type BookingStatus = "confirmed" | "held" | "voucher" | "cancelled";
+// Mirrors HotelBookingDetailResult.bookingStatus from
+// client/src/lib/adapters/tbo/hotel/booking.ts — the actual field the
+// /api/hotels/booking/[id] endpoint returns (not a "held"/"confirmed" enum).
+type BookingStatus = "Confirmed" | "BookFailed" | "VerifyPrice" | "Cancelled" | "Unknown";
+
+interface BookingRoomSupplement {
+  index: string;
+  type: string;
+  description: string;
+  price: number;
+  currency: string;
+}
 
 interface BookingRoomSupplement {
   index: string;
@@ -27,7 +38,7 @@ interface BookingDetail {
   checkInDate: string;
   checkOutDate: string;
   netAmount: number;
-  status: BookingStatus;
+  bookingStatus: BookingStatus;
   lastVoucherDate?: string;
   lastCancellationDeadline?: string;
   voucherStatus?: boolean;
@@ -61,32 +72,44 @@ function BookingInner() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
-  useEffect(() => {
-    const fetchBooking = async () => {
-      try {
-        const res = await fetch(`/api/hotels/booking/${id}`);
-        if (!res.ok) throw new Error("Booking not found");
-        const data = await res.json();
-        setBooking(data.data);
-      } catch (err) {
-        toast.push({
-          title: "Failed to load booking",
-          description: err instanceof Error ? err.message : "Unknown error",
-          tone: "danger",
-        });
-        router.replace("/hotel");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBooking();
+  const fetchBooking = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/hotels/booking/${id}`);
+      if (!res.ok) throw new Error("Booking not found");
+      const data = await res.json();
+      setBooking(data.data);
+      return true;
+    } catch (err) {
+      toast.push({
+        title: "Failed to load booking",
+        description: err instanceof Error ? err.message : "Unknown error",
+        tone: "danger",
+      });
+      router.replace("/hotel");
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }, [id, router, toast]);
+
+  useEffect(() => {
+    fetchBooking();
+  }, [fetchBooking]);
 
   if (loading) return null;
   if (!booking) return null;
 
-  const deadlineInfo = getVoucherDeadlineInfo(booking.lastVoucherDate);
-  const isHeld = booking.status === "held" && !booking.voucherStatus;
+  // TBO: the Hold voucher-by deadline must track LastCancellationDeadline (the
+  // date their own systems enforce) rather than LastVoucherDate, which can
+  // diverge from it — falls back to lastVoucherDate only when TBO doesn't
+  // return a cancellation deadline at all.
+  const effectiveVoucherDeadline = booking.lastCancellationDeadline ?? booking.lastVoucherDate;
+  const deadlineInfo = getVoucherDeadlineInfo(effectiveVoucherDeadline);
+  // A hotel booking is "on hold" when TBO confirmed the Book call itself but
+  // has not yet generated the voucher (IsVoucherBooking=false at Book time).
+  const isCancelled = booking.bookingStatus === "Cancelled";
+  const isHeld = booking.bookingStatus === "Confirmed" && !booking.voucherStatus;
+  const isConfirmed = booking.bookingStatus === "Confirmed" && !!booking.voucherStatus;
   const canGenerateVoucher = isHeld && !deadlineInfo.isExpired;
   const supplements = (booking.rooms ?? []).flatMap((r) => r.supplements ?? []);
 
@@ -98,7 +121,7 @@ function BookingInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingId: booking.bookingId,
-          lastVoucherDate: booking.lastVoucherDate,
+          lastVoucherDate: effectiveVoucherDeadline,
         }),
       });
 
@@ -116,7 +139,10 @@ function BookingInner() {
         tone: "success",
       });
 
-      setTimeout(() => router.push(`/hotel/booking/${id}/confirmation`), 1500);
+      // Re-fetch this same page's booking detail so it re-renders in the
+      // Confirmed state — there is no separate "/confirmation" route under
+      // /hotel/booking/[id], this page itself is the booking's details page.
+      await fetchBooking();
     } catch (err) {
       toast.push({
         title: "Failed to generate voucher",
@@ -144,18 +170,20 @@ function BookingInner() {
                 <p className="text-[14px] font-semibold text-ink">Total: {formatINR(booking.netAmount)}</p>
                 <p
                   className={`text-[12px] font-medium mt-1 ${
-                    booking.status === "confirmed"
+                    isConfirmed
                       ? "text-green-600"
-                      : booking.status === "held"
+                      : isHeld
                         ? "text-amber-600"
                         : "text-red-600"
                   }`}
                 >
-                  {booking.status === "confirmed"
+                  {isConfirmed
                     ? "✓ Confirmed"
-                    : booking.status === "held"
+                    : isHeld
                       ? "⏸ On Hold"
-                      : "✗ Cancelled"}
+                      : isCancelled
+                        ? "✗ Cancelled"
+                        : "Unknown"}
                 </p>
               </div>
             </div>
@@ -244,7 +272,7 @@ function BookingInner() {
           )}
 
           {/* Confirmed Booking */}
-          {booking.status === "confirmed" && (
+          {isConfirmed && (
             <>
               <div className="rounded-xl bg-green-50 border border-green-200 p-4 shadow-(--shadow-xs) mb-6">
                 <p className="text-[13px] text-green-800">
@@ -300,7 +328,7 @@ function BookingInner() {
           )}
 
           {/* Cancelled Booking */}
-          {booking.status === "cancelled" && (
+          {isCancelled && (
             <div className="rounded-xl bg-red-50 border border-red-200 p-4 shadow-(--shadow-xs)">
               <p className="text-[13px] text-red-800">
                 ✗ This booking has been cancelled. Contact support for assistance.

@@ -97,6 +97,20 @@ export class TboPartialBookingError extends TboError {
   }
 }
 
+// Book call's outcome at TBO is genuinely unknown — the request left our
+// server but we never received a parseable Book response (network error,
+// non-timeout fetch exception, HTTP 5xx, or malformed/non-JSON body). This
+// is distinct from an explicit TBO failure (Status=0/BookFailed): TBO may or
+// may not have created the booking, so it must be verified via
+// GetBookingDetail before any refund decision — never silently treated as a
+// hard failure. Certification issue #38: "No calling in failed booking case".
+export class TboBookOutcomeUnknownError extends TboError {
+  constructor(detail: string) {
+    super(10009, detail);
+    this.name = "TboBookOutcomeUnknownError";
+  }
+}
+
 /**
  * Duplicate Booking Validation: per TBO support (Jun 2026), an identical booking is
  * blocked for 5 days for the same passenger criteria + sector — "Booking is already

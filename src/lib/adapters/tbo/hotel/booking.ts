@@ -305,6 +305,11 @@ function mapStatus(raw: string | undefined, code: number | undefined): BookingDe
   return statusFromName ?? statusFromCode ?? "Unknown";
 }
 
+// TBO's cancellation/deadline dates are wall-clock values (not a UTC instant
+// to be converted) — reformat them for display as-is. Converting to another
+// timezone previously rolled dates like "28-12-2026 23:59:59" to "Dec 29",
+// which TBO certification flagged as a wrong policy date. Mirrors
+// hotelUtils.ts's formatCancelPolicyDate (kept separate: differing input type).
 function formatCancelPolicyDate(dateStr: string | undefined): string | undefined {
   if (!dateStr) return dateStr;
 
@@ -312,8 +317,11 @@ function formatCancelPolicyDate(dateStr: string | undefined): string | undefined
     let date: Date;
 
     if (dateStr.includes('T')) {
-      const withZ = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
-      date = new Date(withZ);
+      const naive = dateStr.replace(/Z$|[+-]\d{2}:?\d{2}$/, '');
+      const [datePart, timePart = '00:00:00'] = naive.split('T');
+      const [year, month, day] = datePart.split('-').map((n) => parseInt(n, 10));
+      const [hours, minutes, seconds] = timePart.split(':').map((n) => parseInt(n, 10));
+      date = new Date(year, month - 1, day, hours, minutes, seconds || 0);
     } else if (dateStr.includes('-') && dateStr.includes(':')) {
       const parts = dateStr.split(' ');
       const dateParts = parts[0].split('-');
@@ -326,7 +334,7 @@ function formatCancelPolicyDate(dateStr: string | undefined): string | undefined
       const minutes = parseInt(timeParts[1], 10);
       const seconds = parseInt(timeParts[2], 10);
 
-      date = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+      date = new Date(year, month, day, hours, minutes, seconds);
     } else {
       return dateStr;
     }
@@ -338,7 +346,6 @@ function formatCancelPolicyDate(dateStr: string | undefined): string | undefined
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'Asia/Kolkata',
     });
   } catch {
     return dateStr;
