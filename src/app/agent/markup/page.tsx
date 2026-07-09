@@ -7,7 +7,7 @@ import Tabs from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api";
 import { agentClient, type MarkupRule, type MarkupType } from "@/lib/agentClient";
-import { applyMarkup } from "../../../../../server/src/lib/markupEngine";
+import { applyMarkup } from "@/lib/markupEngine";
 
 type Product = "flights" | "hotels";
 

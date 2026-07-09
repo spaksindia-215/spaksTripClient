@@ -4,7 +4,7 @@ import {
   AgentPricingUnavailableError,
   type MarkupRule,
   type TwoTierPricing,
-} from "../../../../server/src/lib/markupEngine";
+} from "@/lib/markupEngine";
 import { internalApiHeaders } from "./internalApi";
 
 export type { TwoTierPricing, MarkupRule };
@@ -17,11 +17,12 @@ export { AgentPricingUnavailableError };
 // There is no platform-level L1 surcharge applied at runtime.
 // The superadmin Platform Markup config exists for future use but is NOT wired here.
 //
-// The arithmetic (applyMarkup, TwoTierPricing) is imported from the Express
-// app's server/src/lib/markupEngine.ts — the single shared pricing module —
-// rather than duplicated here. That file is pure (zero I/O, zero framework
-// imports), so importing it from this Next.js runtime pulls in nothing beyond
-// plain TypeScript. See that file's header comment for the full rationale.
+// The arithmetic (applyMarkup, TwoTierPricing) comes from
+// client/src/lib/markupEngine.ts, a synced copy of the Express app's
+// server/src/lib/markupEngine.ts — NOT a cross-repo import. client/ and
+// server/ deploy as separate repositories (see that file's header comment),
+// so a relative import across the app boundary only ever worked in the
+// monorepo dev checkout and broke the real production build.
 
 type PricingProduct = "flights" | "hotels" | "taxi";
 
