@@ -10,8 +10,9 @@ import { tboGenerateVoucher } from "@/lib/adapters/tbo/hotel/generateVoucher";
 import { TboBookingFailedError, TboBookOutcomeUnknownError, TboError } from "@/lib/adapters/tbo/errors";
 import { verifyBookingStatusAfterTimeout } from "@/lib/adapters/tbo/hotel/bookingRecovery";
 import { logRequest, logResponse, logError } from "@/lib/adapters/tbo/log";
-import { buildTwoTierPricing, type TwoTierPricing } from "@/lib/server/agentMarkup";
+import { buildTwoTierPricing, AgentPricingUnavailableError, type TwoTierPricing } from "@/lib/server/agentMarkup";
 import { recordCustomerBooking } from "@/lib/server/recordCustomerBooking";
+import { internalApiHeaders } from "@/lib/server/internalApi";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:4000";
 
@@ -242,11 +243,20 @@ export async function POST(request: NextRequest) {
     // ── Agent attribution (subdomain bookings only) ─────────────────────────
     // netAmount is what TBO charges (= tboFare). Compute the full pricing
     // breakdown so all 5 fields can be stamped on the booking record.
+    // Booking-record only — Razorpay payment is already captured by this
+    // point, so a pricing-attribution failure must not abort the booking;
+    // log and persist without a pricing breakdown.
 
-    const agentId   = request.headers.get("x-agent-id") ?? undefined;
-    const twoTierPricing: TwoTierPricing | null = agentId
-      ? await buildTwoTierPricing(Number(netAmount), "hotels", request)
-      : null;
+    const agentId = request.headers.get("x-agent-id") ?? undefined;
+    let twoTierPricing: TwoTierPricing | null = null;
+    if (agentId) {
+      try {
+        twoTierPricing = await buildTwoTierPricing(Number(netAmount), "hotels", request);
+      } catch (e) {
+        const detail = e instanceof AgentPricingUnavailableError ? e.message : String(e);
+        console.error(`\n[RZP ${ts()}] ⚠ agent pricing unavailable; recording booking without pricing breakdown\n  ERROR: ${detail}`);
+      }
+    }
 
     // ── Signature verification ──────────────────────────────────────────────
 
@@ -607,7 +617,7 @@ export async function POST(request: NextRequest) {
     // Hotel bookings are marked as "completed" since they are immediately confirmed by TBO.
     fetch(new URL("/api/internal/record-booking", API_BASE), {
       method:  "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...internalApiHeaders() },
       body: JSON.stringify({
         agentId,
         customerId,

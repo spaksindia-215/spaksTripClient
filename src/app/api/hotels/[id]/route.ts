@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tboGetHotelDetail } from "@/lib/adapters/tbo/hotel/detail";
-import { buildFarePricer } from "@/lib/server/agentMarkup";
+import { buildFarePricer, AgentPricingUnavailableError } from "@/lib/server/agentMarkup";
 
 function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
@@ -52,6 +52,12 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: hotel });
   } catch (e) {
+    // Fail CLOSED: this is the final quote the customer books against — an
+    // unresolvable agent markup must never silently fall back to the raw
+    // TBO fare (undercharges relative to what the agent configured).
+    if (e instanceof AgentPricingUnavailableError) {
+      return err("Pricing temporarily unavailable — please retry.", 503);
+    }
     const message = e instanceof Error ? e.message : "Hotel detail fetch failed";
     return err(message, 500);
   }

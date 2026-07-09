@@ -3,7 +3,7 @@ import { tboSearchHotelsHolidays } from "@/lib/adapters/tbo/hotel/searchHolidays
 import { TboNoResultsError, TboError } from "@/lib/adapters/tbo/errors";
 import { validateOccupancy } from "@/lib/validators/occupancyValidation";
 import type { HotelSearchInput, SearchFilters } from "@/lib/mock/hotels";
-import { buildFarePricer } from "@/lib/server/agentMarkup";
+import { buildFarePricer, AgentPricingUnavailableError } from "@/lib/server/agentMarkup";
 
 function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
@@ -74,8 +74,16 @@ export async function POST(request: NextRequest) {
       return emptySearchOk("No hotels found for the selected dates.");
     }
 
-    // Fetch markup config once, then apply synchronously per room.
-    const priceHotel = await buildFarePricer("hotels", request);
+    // Search is a listing, not a final price quote — fail OPEN if the agent's
+    // markup can't be resolved (show raw TBO fares rather than error the whole
+    // search). The hotel detail route is the actual quote step and fails CLOSED.
+    let priceHotel = (fare: number): number => fare;
+    try {
+      priceHotel = await buildFarePricer("hotels", request);
+    } catch (e) {
+      if (!(e instanceof AgentPricingUnavailableError)) throw e;
+      console.error("[API /api/hotels/search] agent pricing unavailable, showing raw fares:", e.message);
+    }
     for (const hotel of result.hotels) {
       for (const room of hotel.rooms) {
         room.basePrice = priceHotel(room.basePrice);
