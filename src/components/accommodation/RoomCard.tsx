@@ -14,9 +14,11 @@ type Props = {
   nights: number;
   rooms: number;
   onSelect: (room: Room) => void;
+  selecting?: boolean;
+  disabled?: boolean;
 };
 
-export default function RoomCard({ room, nights, rooms, onSelect }: Props) {
+export default function RoomCard({ room, nights, rooms, onSelect, selecting, disabled }: Props) {
   const totalPrice = room.basePrice * nights * rooms;
 
   return (
@@ -81,7 +83,13 @@ export default function RoomCard({ room, nights, rooms, onSelect }: Props) {
           <p className="text-[12px] text-ink-muted">
             {room.amenities.slice(0, 3).map((a) => a.replace("_", " ")).join(" · ")}
           </p>
-          <Button variant="accent" size="md" onClick={() => onSelect(room)}>
+          <Button
+            variant="accent"
+            size="md"
+            loading={selecting}
+            disabled={disabled}
+            onClick={() => onSelect(room)}
+          >
             Select Room
           </Button>
         </div>

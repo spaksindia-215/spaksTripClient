@@ -63,6 +63,7 @@ function HotelDetailInner() {
   const [hotel, setHotel] = useState<Hotel | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
+  const [selectingRoomId, setSelectingRoomId] = useState<string | null>(null);
   const [priceChangeState, setPriceChangeState] = useState<{
     isOpen: boolean;
     originalPrice: number;
@@ -92,6 +93,7 @@ function HotelDetailInner() {
   }, [id, checkIn, checkOut, rooms, adults, children, childrenAges.join(",")]);
 
   const onSelectRoom = async (room: Room) => {
+    if (selectingRoomId) return; // already processing a selection
     if (!hotel) return;
     if (!checkIn || !checkOut) {
       toast.push({ title: "Missing check-in or check-out dates", tone: "warn" });
@@ -116,6 +118,8 @@ function HotelDetailInner() {
       return;
     }
 
+    setSelectingRoomId(room.id);
+
     // Initialize booking with Search data (including childrenAges for multi-room support)
     const bookingData = { hotel, room, checkIn, checkOut, rooms, adults, children, childrenAges, guestNationality };
     try {
@@ -125,6 +129,7 @@ function HotelDetailInner() {
         title: error instanceof Error ? error.message : "Booking failed. Please try again.",
         tone: "warn",
       });
+      setSelectingRoomId(null);
       return;
     }
 
@@ -135,6 +140,7 @@ function HotelDetailInner() {
     const bookingCode = (room as any).id; // Using room ID as booking code
     if (!bookingCode) {
       toast.push({ title: "Invalid room data. Please try again.", tone: "warn" });
+      setSelectingRoomId(null);
       return;
     }
 
@@ -209,6 +215,8 @@ function HotelDetailInner() {
     } catch (error) {
       console.error("PreBook error:", error);
       toast.push({ title: "Failed to lock in rate. Please try again.", tone: "warn" });
+    } finally {
+      setSelectingRoomId(null);
     }
   };
 
@@ -377,6 +385,8 @@ function HotelDetailInner() {
                       nights={nights}
                       rooms={rooms}
                       onSelect={onSelectRoom}
+                      selecting={selectingRoomId === room.id}
+                      disabled={selectingRoomId !== null && selectingRoomId !== room.id}
                     />
                   ))}
                 </div>
