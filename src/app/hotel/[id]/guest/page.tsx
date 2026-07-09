@@ -31,6 +31,8 @@ function buildGuestList(roomCount: number, existingGuests: HotelGuest[] = []): H
       passport: guest.passport,
       passportIssueDate: guest.passportIssueDate,
       passportExpDate: guest.passportExpDate,
+      isCorporate: guest.isCorporate,
+      corporatePan: guest.corporatePan,
     }));
   }
   return Array.from({ length: roomCount }, () => ({

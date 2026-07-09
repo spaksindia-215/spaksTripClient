@@ -1,6 +1,6 @@
 import "server-only";
 import { logRequest, logResponse, logError } from "../log";
-import { assertTboSuccess, TboBookingFailedError, TboError } from "../errors";
+import { assertTboSuccess, TboBookingFailedError, TboBookOutcomeUnknownError, TboError } from "../errors";
 import { basicAuthHeader, type DistributionType } from "./hotelUtils";
 import { fetchWithTimeout, isTimeoutError, TimeoutError } from "../timeout";
 
@@ -226,8 +226,13 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
       );
     }
 
+    // Non-timeout network/transport failure (DNS, connection reset, etc.) —
+    // the request may or may not have reached TBO. Outcome is unknown, not a
+    // confirmed failure: must be verified via GetBookingDetail, never
+    // refunded outright. See TboBookOutcomeUnknownError.
     logError("Hotel Book", err);
-    throw err;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    throw new TboBookOutcomeUnknownError(`TBO Book request failed before a response was received: ${errMsg}`);
   }
 
   const text = await res.text();
@@ -235,7 +240,9 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error(
+    // TBO responded but the body isn't parseable — we can't read the actual
+    // booking outcome. Unknown, not a confirmed failure.
+    throw new TboBookOutcomeUnknownError(
       `TBO Book non-JSON (HTTP ${res.status}) from ${TBO_BOOK_URL}: ${text.slice(0, 200)}`,
     );
   }
@@ -250,7 +257,16 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
     TraceId: data.BookResult?.TraceId,
   });
 
-  if (!res.ok) throw new Error(`TBO Book HTTP ${res.status}`);
+  // HTTP-level failure with a parsed body — TBO's own BookResult (if present)
+  // did not report success/failure via the normal envelope, so we can't trust
+  // this as a confirmed outcome either way. Unknown, not a confirmed failure.
+  if (!res.ok) {
+    const unknownErr = new TboBookOutcomeUnknownError(`TBO Book HTTP ${res.status}`);
+    if (data.BookResult?.TraceId) {
+      (unknownErr as TboBookOutcomeUnknownError & { traceId?: string }).traceId = data.BookResult.TraceId;
+    }
+    throw unknownErr;
+  }
 
   try {
     assertTboSuccess(data.BookResult?.Error);

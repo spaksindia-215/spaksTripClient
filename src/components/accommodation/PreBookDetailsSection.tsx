@@ -115,11 +115,16 @@ export default function PreBookDetailsSection({ preBook, priceChanged }: Props) 
               </div>
             ))}
           </div>
-          {preBook.lastVoucherDate && (
+          {/* TBO: the Hold voucher-by deadline must track LastCancellationDeadline
+              (the date their own systems enforce) rather than LastVoucherDate,
+              which can diverge from it — falls back to lastVoucherDate only when
+              TBO doesn't return a cancellation deadline at all. */}
+          {(preBook.lastCancellationDeadline ?? preBook.lastVoucherDate) && (
             <div className="bg-white rounded px-3 py-2.5 border border-blue-100 mb-3">
               <p className="text-[11px] text-blue-900 font-semibold">⏰ Hold Booking Deadline</p>
               <p className="text-[12px] text-blue-800 mt-1">
-                If you choose to hold this booking, you must generate the voucher before <span className="font-bold">{preBook.lastVoucherDate}</span>
+                If you choose to hold this booking, you must generate the voucher before{" "}
+                <span className="font-bold">{preBook.lastCancellationDeadline ?? preBook.lastVoucherDate}</span>
               </p>
             </div>
           )}
