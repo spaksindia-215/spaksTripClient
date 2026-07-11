@@ -39,6 +39,12 @@ export interface TboRawErrorDetails {
   tboErrorCode?: number;
   tboErrorMessage?: string;
   traceId?: string;
+  // BookingId TBO returned alongside a BookFailed/VerifyPrice status. Even on
+  // a failed Book call, TBO may have created a booking record — when present,
+  // the caller must still verify via GetBookingDetail rather than treating the
+  // booking as a hard failure outright (TBO cert: "Not calling in failed
+  // booking case").
+  bookingId?: number | null;
 }
 
 // Booking submission failed — retry once before surfacing to user
@@ -46,6 +52,7 @@ export class TboBookingFailedError extends TboError {
   public readonly tboErrorCode?: number;
   public readonly tboErrorMessage?: string;
   public readonly traceId?: string;
+  public readonly bookingId?: number | null;
 
   constructor(detail?: string, rawDetails?: TboRawErrorDetails) {
     super(10004, detail ?? "Booking failed");
@@ -53,6 +60,7 @@ export class TboBookingFailedError extends TboError {
     this.tboErrorCode = rawDetails?.tboErrorCode;
     this.tboErrorMessage = rawDetails?.tboErrorMessage;
     this.traceId = rawDetails?.traceId;
+    this.bookingId = rawDetails?.bookingId;
   }
 }
 

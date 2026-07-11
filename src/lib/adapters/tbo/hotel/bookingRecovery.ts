@@ -2,17 +2,24 @@ import "server-only";
 import { tboGetHotelBookingDetail, type GetBookingDetailInput, type HotelBookingDetailResult } from "./booking";
 
 /**
- * Timeout Recovery: If booking request times out, use this to verify booking status.
+ * Booking Verification: verify TBO's actual booking outcome via GetBookingDetail.
  *
  * TBO Recommendation:
  * "If booking processing time exceeds 120 seconds cutoff, call BookingDetail
  *  using BookingId to know final status and avoid financial loss."
  *
+ * TBO Certification requirement ("Not calling in failed booking case"): this
+ * must also be called when Book reported an explicit failure (BookFailed),
+ * whenever TBO gave us an identifier (BookingId/TraceId) to look up — not
+ * only for timeouts/ambiguous outcomes. A BookFailed response does not
+ * guarantee TBO didn't create a booking record.
+ *
  * This function attempts to retrieve booking status when the initial booking
- * request timed out. It can query by:
- * - bookingId: If partially returned in timeout response
+ * request timed out, returned ambiguous/unknown outcome, or explicitly
+ * failed. It can query by:
+ * - bookingId: If returned in the Book response
  * - confirmationNo: If confirmation was issued despite timeout
- * - clientReferenceId: Fallback to match against persisted booking records
+ * - traceId: Fallback identifier from the Book response
  */
 export async function verifyBookingStatusAfterTimeout(
   input: Partial<GetBookingDetailInput> & {
@@ -27,15 +34,6 @@ export async function verifyBookingStatusAfterTimeout(
     return {
       found: false,
       error: "Cannot verify booking: provide at least bookingId, confirmationNo, or traceId",
-    };
-  }
-
-  // TBO compliance: Block recovery for explicit failures
-  // Per TBO requirement: "No calling in failed booking case"
-  if (input.tboFailureReason === "explicit_failure") {
-    return {
-      found: false,
-      error: "Booking was explicitly failed; recovery is not allowed per TBO policy.",
     };
   }
 

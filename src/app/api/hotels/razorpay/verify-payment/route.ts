@@ -635,9 +635,7 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     // Explicit failure: TBO's own Book response said Status=0/BookFailed (or
-    // a business-rule error). Certification requires GetBookingDetail is
-    // NEVER called for this case — checked by message text set exclusively
-    // by book.ts's BookFailed branch, unchanged from before.
+    // a business-rule error).
     const isExplicitFailure = msg.includes("explicitly failed") || msg.includes("status_code=0");
     // Timeout: the 120s cutoff was hit — TBO may or may not have created the
     // booking.
@@ -657,6 +655,7 @@ export async function POST(request: NextRequest) {
     // isExplicitFailure/isTimeout/isPriceChanged or any refund/retry decision above.
     const tboErrorCode = e instanceof TboBookingFailedError ? e.tboErrorCode : undefined;
     const tboErrorMessage = e instanceof TboBookingFailedError ? e.tboErrorMessage : undefined;
+    const tboBookingId = e instanceof TboBookingFailedError ? e.bookingId : undefined;
     const tboTraceId =
       e instanceof TboBookingFailedError
         ? e.traceId
@@ -669,34 +668,39 @@ export async function POST(request: NextRequest) {
       razorpayOrderId,
       isTimeout,
       isAmbiguousOutcome,
+      isExplicitFailure,
       isPriceChanged,
       tboErrorCode,
       tboErrorMessage,
+      tboBookingId,
       tboTraceId,
     });
 
-    // ── Verification before refund (timeout / ambiguous outcome only) ───────
-    // Per TBO's 120s-cutoff guidance: when the outcome is unknown (timeout or
-    // an ambiguous Book failure), call GetBookingDetail to check whether TBO
-    // actually created the booking before treating it as failed. Explicit
-    // failures (isExplicitFailure) skip this entirely, per TBO's "no calling
-    // in failed booking case" requirement. GetBookingDetail requires a
-    // bookingId/confirmationNo/traceId — none of those are available for a
-    // pure timeout or transport-level failure (Book never returned a body),
-    // so verification is only attempted when we actually have a TraceId
-    // (e.g. an ambiguous outcome where TBO did return a parsed BookResult).
+    // ── Verification before treating as failed ──────────────────────────────
+    // TBO certification ("Not calling in failed booking case"): GetBookingDetail
+    // must be called whenever TBO gave us an identifier to look up — BookingId
+    // or TraceId — even when Book itself reported an explicit failure
+    // (BookFailed/VerifyPrice). A failed Book response does not guarantee TBO
+    // never created a booking record. This now runs for timeouts, ambiguous
+    // outcomes, AND explicit failures alike; it is skipped only when neither
+    // identifier is available (e.g. a pure timeout/transport failure where
+    // Book never returned a parseable body at all).
     let reconciledConfirmed: Awaited<ReturnType<typeof verifyBookingStatusAfterTimeout>>["booking"] | undefined;
-    if ((isTimeout || isAmbiguousOutcome) && tboTraceId) {
+    const verifyIdentifier = tboBookingId ?? tboTraceId;
+    if (verifyIdentifier) {
       const recovery = await verifyBookingStatusAfterTimeout({
+        bookingId: tboBookingId ?? undefined,
         traceId: tboTraceId,
         clientReferenceId,
-        tboFailureReason: "timeout",
+        tboFailureReason,
       });
 
       console.log(
         `\n[RZP ${ts()}] → RECOVERY_VERIFY (GetBookingDetail)` +
           `\n  razorpayPaymentId: ${razorpayPaymentId}` +
-          `\n  tboTraceId: ${tboTraceId}` +
+          `\n  tboFailureReason: ${tboFailureReason}` +
+          `\n  tboBookingId: ${tboBookingId ?? "n/a"}` +
+          `\n  tboTraceId: ${tboTraceId ?? "n/a"}` +
           `\n  found: ${recovery.found}` +
           `\n  bookingStatus: ${recovery.booking?.bookingStatus ?? "n/a"}`,
       );

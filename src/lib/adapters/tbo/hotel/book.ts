@@ -295,10 +295,15 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
   if (!r) throw new Error("TBO Book returned empty BookResult");
 
   const bookingStatus = mapBookingStatus(r.HotelBookingStatus, r.Status);
+  // BookingId is preserved on rawDetails even for failure statuses: TBO's
+  // certification remark "Not calling in failed booking case" means
+  // GetBookingDetail must still be called whenever TBO gave us an identifier
+  // to look up, even though Book itself reported failure.
   const rawDetails = {
     tboErrorCode: r.Error?.ErrorCode,
     tboErrorMessage: r.Error?.ErrorMessage,
     traceId: r.TraceId,
+    bookingId: r.BookingId ?? null,
   };
 
   // Status 3 = VerifyPrice — rate changed since PreBook; caller must re-prebook
@@ -310,10 +315,12 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
   }
 
   if (bookingStatus === "BookFailed") {
-    // Explicit failure (status code 0) — no recovery allowed per TBO policy
-    // TBO requirement: "No calling in failed booking case"
+    // Explicit failure (status code 0) — TBO may still have created a
+    // booking record; caller must call GetBookingDetail using BookingId/
+    // TraceId before treating this as a confirmed hard failure (TBO cert:
+    // "Not calling in failed booking case").
     throw new TboBookingFailedError(
-      `Booking explicitly failed (status_code=0). No recovery attempted.`,
+      `Booking explicitly failed (status_code=0).`,
       rawDetails,
     );
   }
