@@ -84,6 +84,21 @@ export default function PreBookDetailsSection({ preBook, priceChanged }: Props) 
         </section>
       )}
 
+      {/* Room Amenities */}
+      {preBook.amenities && preBook.amenities.length > 0 && (
+        <section className="rounded-xl bg-white border border-border-soft p-4 shadow-(--shadow-xs)">
+          <h3 className="text-[13px] font-bold text-ink mb-3">Room Amenities</h3>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {Array.from(new Set(preBook.amenities)).map((amenity, i) => (
+              <li key={i} className="text-[12px] text-ink-soft flex items-start gap-2">
+                <span className="text-brand-600 mt-0.5 flex-shrink-0">•</span>
+                <span>{amenity}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Mandatory Supplements */}
       {preBook.supplements && preBook.supplements.length > 0 && (
         <section className="rounded-xl bg-orange-50 border border-orange-200 p-4 shadow-(--shadow-xs)">

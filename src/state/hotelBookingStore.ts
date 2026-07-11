@@ -33,6 +33,9 @@ export type HotelPreBookInfo = {
   rateConditions?: string[];
   // Mandatory supplements paid at hotel (may be in hotel's local currency)
   supplements?: Array<{ index: string; type: string; description: string; price: number; currency: string }>;
+  // Room amenities (e.g. Air Conditioning, Minibar, Hair Dryer) — TBO PreBook.Rooms[].Amenities.
+  // Distinct from hotel-level HotelFacilities shown on the Hotel Details page.
+  amenities?: string[];
   netAmount: number;
   panMandatory: boolean;
   // Exact number of PANs TBO requires for this booking (0 when panMandatory is

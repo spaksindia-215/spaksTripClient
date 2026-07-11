@@ -73,6 +73,7 @@ export function usePreBook(options: UsePreBookOptions) {
           roomPromotion: firstRoom.roomPromotion,
           cancelPolicies: firstRoom.cancelPolicies,
           rateConditions: data.rateConditions,
+          amenities: firstRoom.amenities,
           netAmount: newPrice,
           panMandatory: validationInfo?.panMandatory ?? false,
           panCountRequired: validationInfo?.panCountRequired ?? 0,

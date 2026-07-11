@@ -178,6 +178,7 @@ function HotelDetailInner() {
         cancelPolicies: firstRoom.cancelPolicies,
         rateConditions: preBookData.rateConditions,
         supplements: firstRoom.supplements,
+        amenities: firstRoom.amenities,
         netAmount: firstRoom.netAmount || firstRoom.totalFare,
         panMandatory: validationInfo?.panMandatory ?? false,
         panCountRequired: validationInfo?.panCountRequired ?? 0,
