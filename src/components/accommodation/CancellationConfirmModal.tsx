@@ -10,8 +10,6 @@ interface CancellationConfirmModalProps {
   bookingId: number;
   bookingRefNo: string;
   paidAmount: number;
-  cancellationFee: number;
-  refundAmount: number;
   cancellationDeadline?: string;
   onConfirm: (remarks: string) => Promise<void>;
   onCancel: () => void;
@@ -25,8 +23,6 @@ export default function CancellationConfirmModal({
   bookingId,
   bookingRefNo,
   paidAmount,
-  cancellationFee,
-  refundAmount,
   cancellationDeadline,
   onConfirm,
   onCancel,
@@ -77,24 +73,19 @@ export default function CancellationConfirmModal({
             </div>
           </div>
 
-          {/* Refund Breakdown */}
+          {/* Paid Amount — TBO only returns the actual cancellation charge and
+              refund amount after the cancellation request is submitted (shown
+              next via CancellationStatusTracker), so no refund figure is
+              asserted here. */}
           <div className="rounded-lg bg-surface-muted p-4">
-            <p className="text-[12px] text-ink-muted font-semibold mb-3">REFUND BREAKDOWN</p>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center pb-2 border-b border-border-soft">
-                <span className="text-[13px] text-ink">Paid Amount</span>
-                <span className="text-[13px] font-semibold text-ink">{formatINR(paidAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center pb-2 border-b border-border-soft">
-                <span className="text-[13px] text-orange-700">Cancellation Fee</span>
-                <span className="text-[13px] font-semibold text-orange-700">-{formatINR(cancellationFee)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-[13px] font-bold text-green-700">You'll Receive</span>
-                <span className="text-[14px] font-bold text-green-700">{formatINR(refundAmount)}</span>
-              </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[13px] text-ink">Paid Amount</span>
+              <span className="text-[13px] font-semibold text-ink">{formatINR(paidAmount)}</span>
             </div>
           </div>
+          <p className="text-[11px] text-ink-muted italic">
+            The cancellation charge and refund amount are determined by TBO and will be shown after you submit this request.
+          </p>
 
           {/* Deadline */}
           {cancellationDeadline && (

@@ -55,17 +55,15 @@ function adultsPerRoomDistribution(totalAdults: number, roomCount: number): numb
   });
 }
 
-// How many of this room's adults need a PAN, given the total PANs TBO
-// requires (panCountRequired) and how many have already been allocated to
-// earlier rooms. PreBook's panCountRequired is the sole source of truth —
-// never assume every adult needs one.
+// How many of this room's adults need a PAN. PreBook's panCountRequired > 0
+// signals PAN is mandatory for this booking; TBO's Book API then rejects any
+// adult passenger missing a PAN (confirmed live: a 2-adult room with only 1
+// PAN collected was rejected with "PAN is mandatory" even though
+// panCountRequired was 1 — TBO requires one per adult, not panCountRequired
+// total). So once PAN is mandatory, every adult in every room gets a slot.
 function panSlotsPerRoom(roomAdultCounts: number[], panCountRequired: number): number[] {
-  let remaining = Math.max(0, panCountRequired);
-  return roomAdultCounts.map((roomAdults) => {
-    const slots = Math.min(roomAdults, remaining);
-    remaining -= slots;
-    return slots;
-  });
+  if (panCountRequired <= 0) return roomAdultCounts.map(() => 0);
+  return roomAdultCounts;
 }
 
 export default function HotelGuestPage() {

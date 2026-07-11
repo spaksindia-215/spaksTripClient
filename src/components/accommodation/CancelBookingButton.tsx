@@ -11,8 +11,6 @@ interface CancelBookingButtonProps {
   bookingRefNo: string;
   hotelName: string;
   paidAmount: number;
-  refundAmount: number;
-  cancellationFee: number;
   lastCancellationDeadline?: string;
 }
 
@@ -34,8 +32,6 @@ export default function CancelBookingButton({
   bookingRefNo,
   hotelName,
   paidAmount,
-  refundAmount,
-  cancellationFee,
   lastCancellationDeadline,
 }: CancelBookingButtonProps) {
   const toast = useToast();
@@ -128,8 +124,6 @@ export default function CancelBookingButton({
         bookingId={bookingId}
         bookingRefNo={bookingRefNo}
         paidAmount={paidAmount}
-        cancellationFee={cancellationFee}
-        refundAmount={refundAmount}
         cancellationDeadline={lastCancellationDeadline}
         onConfirm={handleConfirmCancel}
         onCancel={() => setModalOpen(false)}

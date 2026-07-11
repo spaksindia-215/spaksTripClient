@@ -291,27 +291,20 @@ function BookingInner() {
                   )}
                 </p>
 
-                {/* Refund Estimate */}
+                {/* Paid Amount — TBO does not return the actual cancellation charge or
+                    refund amount until after a cancellation is submitted (via
+                    GetChangeRequestStatus, shown in CancellationStatusTracker below).
+                    Showing a precomputed refund figure here would be a guess, not a
+                    TBO value, so only the known paid amount is shown pre-submission. */}
                 <div className="bg-white rounded-lg px-4 py-3 mb-4 border border-blue-200">
-                  <p className="text-[12px] text-blue-900 font-semibold mb-3">If you cancel now:</p>
-                  <div className="space-y-2 text-[12px]">
-                    <div className="flex justify-between">
-                      <span className="text-ink">Paid Amount</span>
-                      <span className="font-mono font-semibold text-ink">{formatINR(booking.netAmount)}</span>
-                    </div>
-                    <div className="flex justify-between text-orange-700">
-                      <span>Cancellation Fee (estimated)</span>
-                      <span className="font-mono font-semibold">-₹1,000</span>
-                    </div>
-                    <div className="flex justify-between text-green-700 font-bold border-t border-blue-100 pt-2">
-                      <span>Estimated Refund</span>
-                      <span className="font-mono">{formatINR(Math.max(0, booking.netAmount - 1000))}</span>
-                    </div>
+                  <div className="flex justify-between text-[12px]">
+                    <span className="text-ink">Paid Amount</span>
+                    <span className="font-mono font-semibold text-ink">{formatINR(booking.netAmount)}</span>
                   </div>
                 </div>
 
                 <p className="text-[11px] text-blue-800 italic mb-4">
-                  Final refund amount may vary based on TBO's cancellation policy. You'll see the exact amount after confirmation.
+                  The cancellation charge and refund amount are determined by TBO and will be shown once your cancellation request is submitted.
                 </p>
 
                 <CancelBookingButton
@@ -319,8 +312,6 @@ function BookingInner() {
                   bookingRefNo={booking.bookingRefNo}
                   hotelName={booking.hotelName}
                   paidAmount={booking.netAmount}
-                  refundAmount={Math.max(0, booking.netAmount - 1000)}
-                  cancellationFee={1000}
                   lastCancellationDeadline={booking.lastCancellationDeadline}
                 />
               </section>

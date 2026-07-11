@@ -418,15 +418,19 @@ export async function POST(request: NextRequest) {
     // name so the count satisfies TBO's validation. Only the lead passenger
     // matters for check-in; the name duplication is a TBO API formality.
     //
-    // PAN is NOT duplicated across passengers. PreBook's ValidationInfo
+    // PAN is NOT duplicated across adult passengers. PreBook's ValidationInfo
     // (PanMandatory + PanCountRequired) determines exactly how many real PANs
     // were collected: one on the room's lead guest (guest.pan) plus, for rooms
     // with multiple adults, one per additional adult in guest.additionalAdultPans
     // (collected by the guest form up to that room's allocated PAN slot count).
     // Passengers beyond the collected PANs simply get no PAN — the app never
     // assumes every adult needs one.
-    // Children are separate passengers (PaxType 2) with their ages and never
-    // require PAN.
+    // Children (PaxType 2) never get their own PAN input in the guest form —
+    // a minor doesn't hold a PAN card. But TBO's Book API requires the PAN
+    // node to be present on every passenger object in the room, child included
+    // (TBO certification: "Not passing PAN for child PAX, you need to pass the
+    // PAN for every guest"). So each child inherits the room's collected lead
+    // PAN (undefined if the room never collected one, e.g. panMandatory=false).
     let adultsRemaining = totalAdults;
     let childrenRemaining = totalChildren;
     let childAgeOffset = 0;
@@ -465,7 +469,9 @@ export async function POST(request: NextRequest) {
           passportIssueDate: lead.passportIssueDate || undefined,
           passportExpDate: lead.passportExpDate || undefined,
         })),
-        // Child passengers — PaxType 2, Age required by TBO. Never require PAN.
+        // Child passengers — PaxType 2, Age required by TBO. Children never
+        // collect their own PAN, but TBO's Book API requires the PAN field on
+        // every passenger, so each child inherits this room's collected lead PAN.
         ...Array.from({ length: roomChildren }, () => {
           const age = childrenAges[childAgeOffset++] ?? 0;
           return {
@@ -475,6 +481,7 @@ export async function POST(request: NextRequest) {
             paxType: 2 as const,
             leadPassenger: false,
             age,
+            pan: lead.pan || undefined,
           };
         }),
       ];

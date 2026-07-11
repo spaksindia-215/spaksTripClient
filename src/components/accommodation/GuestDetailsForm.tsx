@@ -269,8 +269,9 @@ export default function GuestDetailsForm({
             />
           </div>
 
-          {/* Additional adults in this room — only rendered up to this room's
-              allocated PAN slot count (panSlots - 1), never for every adult. */}
+          {/* Additional adults in this room — rendered up to this room's
+              allocated PAN slot count (panSlots - 1). When PAN is mandatory,
+              panSlots covers every adult in the room. */}
           {Array.from({ length: additionalAdultPanCount }, (_, slot) => (
             <div className="flex flex-col gap-1 mt-3" key={slot}>
               <label htmlFor={`guest-pan-${roomNumber}-adult-${slot + 2}`} className="text-[13px] font-medium text-ink">

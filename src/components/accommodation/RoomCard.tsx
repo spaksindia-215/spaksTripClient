@@ -46,7 +46,7 @@ export default function RoomCard({ room, nights, rooms, onSelect, selecting, dis
               <span className="text-[12px] font-medium text-ink-muted"> /night</span>
             </p>
             <p className="text-[11px] text-ink-muted">
-              {formatINR(totalPrice)} total · {nights}N · {rooms}R
+              {formatINR(totalPrice)} + taxes · {nights}N · {rooms}R
             </p>
           </div>
         </div>

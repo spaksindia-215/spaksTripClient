@@ -191,6 +191,18 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
     ...reqBody,
     HotelRoomsDetails: `[${hotelPassengersByRoom.length} room(s), ${hotelPassengersByRoom.reduce((n, r) => n + r.HotelPassenger.length, 0)} passenger(s)]`,
   });
+  // Diagnostic only: confirms PAN is present/absent per passenger without
+  // logging the actual PAN value.
+  console.log(
+    "[Hotel Book] passenger PAN presence:",
+    hotelPassengersByRoom.flatMap((r) =>
+      r.HotelPassenger.map((p) => ({
+        PaxType: p.PaxType,
+        LeadPassenger: p.LeadPassenger,
+        hasPan: p.PAN != null && p.PAN !== "",
+      })),
+    ),
+  );
 
   const distributionType = input.distributionType ?? "b2c";
   let res: Response;
