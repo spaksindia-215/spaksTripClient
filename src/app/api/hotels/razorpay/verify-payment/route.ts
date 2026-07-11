@@ -444,7 +444,12 @@ export async function POST(request: NextRequest) {
       childrenRemaining -= roomChildren;
 
       const roomPassengers = [
-        // Lead passenger — real form data including identity documents
+        // Lead passenger — real form data including identity documents.
+        // TBO reads this passenger's own PAN node as THE PAN for the booking
+        // (confirmed by TBO certification: sending CorporatePAN at the request
+        // level alone still surfaced as "personal PAN" on their side). So when
+        // this is a corporate booking, the lead's PAN node must carry the
+        // corporate PAN, not the personal PAN collected alongside it.
         {
           title: lead.title as "Mr" | "Mrs" | "Ms",
           firstName: lead.firstName,
@@ -452,7 +457,7 @@ export async function POST(request: NextRequest) {
           paxType: 1 as const,
           leadPassenger: true,
           age: lead.age,
-          pan: lead.pan || undefined,
+          pan: (isCorporate ? corporatePan : lead.pan) || undefined,
           passportNo: lead.passport || undefined,
           passportIssueDate: lead.passportIssueDate || undefined,
           passportExpDate: lead.passportExpDate || undefined,
@@ -473,7 +478,8 @@ export async function POST(request: NextRequest) {
         })),
         // Child passengers — PaxType 2, Age required by TBO. Children never
         // collect their own PAN, but TBO's Book API requires the PAN field on
-        // every passenger, so each child inherits this room's collected lead PAN.
+        // every passenger, so each child inherits this room's collected lead
+        // PAN — the corporate PAN on a corporate booking, same as the lead.
         ...Array.from({ length: roomChildren }, () => {
           const age = childrenAges[childAgeOffset++] ?? 0;
           return {
@@ -483,7 +489,7 @@ export async function POST(request: NextRequest) {
             paxType: 2 as const,
             leadPassenger: false,
             age,
-            pan: lead.pan || undefined,
+            pan: (isCorporate ? corporatePan : lead.pan) || undefined,
           };
         }),
       ];
