@@ -3,6 +3,22 @@
 import type { HotelPreBookInfo } from "@/state/hotelBookingStore";
 import Badge from "@/components/ui/Badge";
 
+// TBO returns ChargeType as "Percentage" for a % of the booking value; anything
+// else (e.g. "Fixed") is an absolute amount in the booking currency. formatINR()
+// rounds to whole rupees, which would silently drop TBO's fractional charge
+// (e.g. 651.76), so fixed charges are formatted here with cents preserved.
+function formatCancellationCharge(chargeType: string, cancellationCharge: number): string {
+  if (chargeType?.trim().toLowerCase() === "percentage") {
+    return `${cancellationCharge}%`;
+  }
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cancellationCharge);
+}
+
 type Props = {
   preBook: HotelPreBookInfo;
   priceChanged?: {
@@ -68,6 +84,21 @@ export default function PreBookDetailsSection({ preBook, priceChanged }: Props) 
         </section>
       )}
 
+      {/* Room Amenities */}
+      {preBook.amenities && preBook.amenities.length > 0 && (
+        <section className="rounded-xl bg-white border border-border-soft p-4 shadow-(--shadow-xs)">
+          <h3 className="text-[13px] font-bold text-ink mb-3">Room Amenities</h3>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {Array.from(new Set(preBook.amenities)).map((amenity, i) => (
+              <li key={i} className="text-[12px] text-ink-soft flex items-start gap-2">
+                <span className="text-brand-600 mt-0.5 flex-shrink-0">•</span>
+                <span>{amenity}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Mandatory Supplements */}
       {preBook.supplements && preBook.supplements.length > 0 && (
         <section className="rounded-xl bg-orange-50 border border-orange-200 p-4 shadow-(--shadow-xs)">
@@ -111,7 +142,9 @@ export default function PreBookDetailsSection({ preBook, priceChanged }: Props) 
                   <p className="text-[12px] font-semibold text-blue-900">From {policy.fromDate}, cancellation charge applies</p>
                   <p className="text-[11px] text-blue-800">{policy.chargeType}</p>
                 </div>
-                <p className="text-[12px] font-bold text-blue-900 whitespace-nowrap">₹{policy.cancellationCharge.toLocaleString()}</p>
+                <p className="text-[12px] font-bold text-blue-900 whitespace-nowrap">
+                  {formatCancellationCharge(policy.chargeType, policy.cancellationCharge)}
+                </p>
               </div>
             ))}
           </div>

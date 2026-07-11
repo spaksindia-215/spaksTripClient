@@ -6,7 +6,6 @@ import type {
   HotelBookInput,
   HotelBookRoomDetails,
 } from "@/lib/adapters/tbo/hotel/book";
-import { tboGenerateVoucher } from "@/lib/adapters/tbo/hotel/generateVoucher";
 import { TboBookingFailedError, TboBookOutcomeUnknownError, TboError } from "@/lib/adapters/tbo/errors";
 import { verifyBookingStatusAfterTimeout } from "@/lib/adapters/tbo/hotel/bookingRecovery";
 import { logRequest, logResponse, logError } from "@/lib/adapters/tbo/log";
@@ -41,9 +40,12 @@ interface HotelPaymentRecord {
   tboBookingRefNo?:   string | null;
   tboConfirmationNo?: string | null;
   tboInvoiceNumber?:  string | null;
-  // Set only for Hold bookings (IsVoucherBooking=false) after an automatic
-  // post-Book GenerateVoucher attempt. Absent for Voucher-now bookings, which
-  // TBO already vouchers as part of Book itself (no separate call needed).
+  // Not set by this route. Historically written after an automatic post-Book
+  // GenerateVoucher call for Hold bookings; that auto-call has been removed
+  // per TBO certification (voucher generation is now customer-triggered only,
+  // via POST /api/hotels/voucher). Kept in the schema only for the idempotent-
+  // replay branch below; voucher state is otherwise read live from TBO via
+  // GetBookingDetail (/api/hotels/booking/[id]), not from this collection.
   voucherStatus?:     boolean;
   voucherGeneratedAt?: Date;
   voucherError?:      string;
@@ -418,15 +420,19 @@ export async function POST(request: NextRequest) {
     // name so the count satisfies TBO's validation. Only the lead passenger
     // matters for check-in; the name duplication is a TBO API formality.
     //
-    // PAN is NOT duplicated across passengers. PreBook's ValidationInfo
+    // PAN is NOT duplicated across adult passengers. PreBook's ValidationInfo
     // (PanMandatory + PanCountRequired) determines exactly how many real PANs
     // were collected: one on the room's lead guest (guest.pan) plus, for rooms
     // with multiple adults, one per additional adult in guest.additionalAdultPans
     // (collected by the guest form up to that room's allocated PAN slot count).
     // Passengers beyond the collected PANs simply get no PAN — the app never
     // assumes every adult needs one.
-    // Children are separate passengers (PaxType 2) with their ages and never
-    // require PAN.
+    // Children (PaxType 2) never get their own PAN input in the guest form —
+    // a minor doesn't hold a PAN card. But TBO's Book API requires the PAN
+    // node to be present on every passenger object in the room, child included
+    // (TBO certification: "Not passing PAN for child PAX, you need to pass the
+    // PAN for every guest"). So each child inherits the room's collected lead
+    // PAN (undefined if the room never collected one, e.g. panMandatory=false).
     let adultsRemaining = totalAdults;
     let childrenRemaining = totalChildren;
     let childAgeOffset = 0;
@@ -438,7 +444,12 @@ export async function POST(request: NextRequest) {
       childrenRemaining -= roomChildren;
 
       const roomPassengers = [
-        // Lead passenger — real form data including identity documents
+        // Lead passenger — real form data including identity documents.
+        // TBO reads this passenger's own PAN node as THE PAN for the booking
+        // (confirmed by TBO certification: sending CorporatePAN at the request
+        // level alone still surfaced as "personal PAN" on their side). So when
+        // this is a corporate booking, the lead's PAN node must carry the
+        // corporate PAN, not the personal PAN collected alongside it.
         {
           title: lead.title as "Mr" | "Mrs" | "Ms",
           firstName: lead.firstName,
@@ -446,7 +457,7 @@ export async function POST(request: NextRequest) {
           paxType: 1 as const,
           leadPassenger: true,
           age: lead.age,
-          pan: lead.pan || undefined,
+          pan: (isCorporate ? corporatePan : lead.pan) || undefined,
           passportNo: lead.passport || undefined,
           passportIssueDate: lead.passportIssueDate || undefined,
           passportExpDate: lead.passportExpDate || undefined,
@@ -465,7 +476,10 @@ export async function POST(request: NextRequest) {
           passportIssueDate: lead.passportIssueDate || undefined,
           passportExpDate: lead.passportExpDate || undefined,
         })),
-        // Child passengers — PaxType 2, Age required by TBO. Never require PAN.
+        // Child passengers — PaxType 2, Age required by TBO. Children never
+        // collect their own PAN, but TBO's Book API requires the PAN field on
+        // every passenger, so each child inherits this room's collected lead
+        // PAN — the corporate PAN on a corporate booking, same as the lead.
         ...Array.from({ length: roomChildren }, () => {
           const age = childrenAges[childAgeOffset++] ?? 0;
           return {
@@ -475,6 +489,7 @@ export async function POST(request: NextRequest) {
             paxType: 2 as const,
             leadPassenger: false,
             age,
+            pan: (isCorporate ? corporatePan : lead.pan) || undefined,
           };
         }),
       ];
@@ -569,48 +584,12 @@ export async function POST(request: NextRequest) {
       },
     );
 
-    // ── Auto-voucher Hold bookings ───────────────────────────────────────────
-    // Per TBO's Book documentation: "To book and voucher in one go, IsVoucherBooking
-    // should be true. In this case, there is no need to call GenerateVoucher
-    // separately." So this only runs for Hold bookings (IsVoucherBooking=false),
-    // which TBO requires to be vouchered via a separate call before
-    // LastCancellationDeadline. Skipped entirely if Book didn't actually confirm
-    // (no BookingId, price change, etc.) — voucher generation must never run
-    // against an unconfirmed booking. Best-effort: a voucher failure here must
-    // NOT affect the booking record, trigger a refund, or fail this request —
-    // the booking itself already succeeded at TBO. The customer can still
-    // retry vouchering later from /hotel/booking/[id].
-    let voucherResult: Awaited<ReturnType<typeof tboGenerateVoucher>> | null = null;
-    let voucherErrorMessage: string | undefined;
-    if (
-      bookInput.isVoucherBooking === false &&
-      tboResult.bookingStatus === "Confirmed" &&
-      typeof tboResult.bookingId === "number" &&
-      tboResult.bookingId > 0
-    ) {
-      try {
-        voucherResult = await tboGenerateVoucher({ bookingId: tboResult.bookingId });
-        await col.updateOne(
-          { razorpayOrderId, razorpayPaymentId },
-          {
-            $set: {
-              voucherStatus:      voucherResult.voucherStatus,
-              voucherGeneratedAt: new Date(),
-            },
-          },
-        );
-      } catch (voucherErr) {
-        voucherErrorMessage = voucherErr instanceof Error ? voucherErr.message : String(voucherErr);
-        logError("GENERATE_VOUCHER", voucherErr, {
-          bookingId: tboResult.bookingId,
-          razorpayPaymentId,
-        });
-        await col.updateOne(
-          { razorpayOrderId, razorpayPaymentId },
-          { $set: { voucherError: voucherErrorMessage } },
-        );
-      }
-    }
+    // ── No automatic voucher generation for Hold bookings ────────────────────
+    // Per TBO certification: GenerateVoucher must only be called when the
+    // customer explicitly requests it from the portal (see /hotel/booking/[id]
+    // "Generate Voucher" button → POST /api/hotels/voucher), never immediately
+    // after Book. Hold bookings (IsVoucherBooking=false) are left un-vouchered
+    // here; the booking simply remains on Hold until the customer acts.
 
     // Create a BookingModel entry for settlement reporting and customer dashboard (non-fatal: fire-and-forget).
     // For agent bookings (twoTierPricing), include full pricing; for customers, use simplified pricing.
@@ -632,13 +611,19 @@ export async function POST(request: NextRequest) {
     });
 
     // Customer dashboard recording (main-site logged-in customers). Best-effort.
+    // Hold bookings (isVoucherBooking=false) record as status "held" so the
+    // dashboard prompts the customer to generate their voucher; bookingId is
+    // stored so that prompt can link straight to /hotel/booking/[id].
     void recordCustomerBooking({
       productType: "hotel",
       pnr: tboResult.bookingRefNo ?? undefined,
       amount: Math.round(capturedPaise / 100),
+      status: bookInput.isVoucherBooking === false ? "held" : "active",
       details: {
         guests: totalAdults + totalChildren,
         hotelCode: bookingCode,
+        bookingId: tboResult.bookingId,
+        isVoucherBooking: bookInput.isVoucherBooking,
       },
     });
 
@@ -646,28 +631,17 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         ...tboResult,
-        // Present only for Hold bookings where auto-voucher ran (see above).
-        // Absent for Voucher-now bookings — tboResult.voucherStatus already
-        // reflects the voucher generated as part of Book itself.
-        ...(voucherResult
-          ? {
-              voucherGenerated: true,
-              voucherStatus: voucherResult.voucherStatus,
-              voucherConfirmationNo: voucherResult.confirmationNo,
-              voucherInvoiceNumber: voucherResult.invoiceNumber,
-            }
-          : voucherErrorMessage
-            ? { voucherGenerated: false, voucherError: voucherErrorMessage }
-            : {}),
+        // For Voucher-now bookings, tboResult.voucherStatus already reflects
+        // the voucher generated as part of Book itself. For Hold bookings,
+        // voucherStatus is absent/false here — the customer must explicitly
+        // generate the voucher later from /hotel/booking/[id].
       },
     });
 
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     // Explicit failure: TBO's own Book response said Status=0/BookFailed (or
-    // a business-rule error). Certification requires GetBookingDetail is
-    // NEVER called for this case — checked by message text set exclusively
-    // by book.ts's BookFailed branch, unchanged from before.
+    // a business-rule error).
     const isExplicitFailure = msg.includes("explicitly failed") || msg.includes("status_code=0");
     // Timeout: the 120s cutoff was hit — TBO may or may not have created the
     // booking.
@@ -687,6 +661,7 @@ export async function POST(request: NextRequest) {
     // isExplicitFailure/isTimeout/isPriceChanged or any refund/retry decision above.
     const tboErrorCode = e instanceof TboBookingFailedError ? e.tboErrorCode : undefined;
     const tboErrorMessage = e instanceof TboBookingFailedError ? e.tboErrorMessage : undefined;
+    const tboBookingId = e instanceof TboBookingFailedError ? e.bookingId : undefined;
     const tboTraceId =
       e instanceof TboBookingFailedError
         ? e.traceId
@@ -699,34 +674,39 @@ export async function POST(request: NextRequest) {
       razorpayOrderId,
       isTimeout,
       isAmbiguousOutcome,
+      isExplicitFailure,
       isPriceChanged,
       tboErrorCode,
       tboErrorMessage,
+      tboBookingId,
       tboTraceId,
     });
 
-    // ── Verification before refund (timeout / ambiguous outcome only) ───────
-    // Per TBO's 120s-cutoff guidance: when the outcome is unknown (timeout or
-    // an ambiguous Book failure), call GetBookingDetail to check whether TBO
-    // actually created the booking before treating it as failed. Explicit
-    // failures (isExplicitFailure) skip this entirely, per TBO's "no calling
-    // in failed booking case" requirement. GetBookingDetail requires a
-    // bookingId/confirmationNo/traceId — none of those are available for a
-    // pure timeout or transport-level failure (Book never returned a body),
-    // so verification is only attempted when we actually have a TraceId
-    // (e.g. an ambiguous outcome where TBO did return a parsed BookResult).
+    // ── Verification before treating as failed ──────────────────────────────
+    // TBO certification ("Not calling in failed booking case"): GetBookingDetail
+    // must be called whenever TBO gave us an identifier to look up — BookingId
+    // or TraceId — even when Book itself reported an explicit failure
+    // (BookFailed/VerifyPrice). A failed Book response does not guarantee TBO
+    // never created a booking record. This now runs for timeouts, ambiguous
+    // outcomes, AND explicit failures alike; it is skipped only when neither
+    // identifier is available (e.g. a pure timeout/transport failure where
+    // Book never returned a parseable body at all).
     let reconciledConfirmed: Awaited<ReturnType<typeof verifyBookingStatusAfterTimeout>>["booking"] | undefined;
-    if ((isTimeout || isAmbiguousOutcome) && tboTraceId) {
+    const verifyIdentifier = tboBookingId ?? tboTraceId;
+    if (verifyIdentifier) {
       const recovery = await verifyBookingStatusAfterTimeout({
+        bookingId: tboBookingId ?? undefined,
         traceId: tboTraceId,
         clientReferenceId,
-        tboFailureReason: "timeout",
+        tboFailureReason,
       });
 
       console.log(
         `\n[RZP ${ts()}] → RECOVERY_VERIFY (GetBookingDetail)` +
           `\n  razorpayPaymentId: ${razorpayPaymentId}` +
-          `\n  tboTraceId: ${tboTraceId}` +
+          `\n  tboFailureReason: ${tboFailureReason}` +
+          `\n  tboBookingId: ${tboBookingId ?? "n/a"}` +
+          `\n  tboTraceId: ${tboTraceId ?? "n/a"}` +
           `\n  found: ${recovery.found}` +
           `\n  bookingStatus: ${recovery.booking?.bookingStatus ?? "n/a"}`,
       );

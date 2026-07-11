@@ -23,6 +23,9 @@ export interface RecordCustomerBookingPayload {
   currency?: string;
   claimEmail?: string;
   details?: Record<string, unknown>;
+  // Defaults server-side to "active". Pass "held" for a hotel Hold booking so
+  // the dashboard prompts the customer to generate their voucher.
+  status?: "active" | "held" | "cancelled" | "completed";
 }
 
 export async function recordCustomerBooking(payload: RecordCustomerBookingPayload): Promise<void> {

@@ -139,7 +139,7 @@ function mergeStaticDetails(hotel: Hotel, s: TboStaticHotelDetail): Hotel {
     const extra = mapAmenities(s.HotelFacilities);
     merged.amenities = Array.from(new Set([...merged.amenities, ...extra]));
 
-    const unmatched = getUnmatchedFacilities(s.HotelFacilities);
+    const unmatched = Array.from(new Set(getUnmatchedFacilities(s.HotelFacilities)));
     if (unmatched.length > 0) {
       merged.otherServices = unmatched;
     }

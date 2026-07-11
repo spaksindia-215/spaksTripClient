@@ -33,6 +33,9 @@ export type HotelPreBookInfo = {
   rateConditions?: string[];
   // Mandatory supplements paid at hotel (may be in hotel's local currency)
   supplements?: Array<{ index: string; type: string; description: string; price: number; currency: string }>;
+  // Room amenities (e.g. Air Conditioning, Minibar, Hair Dryer) — TBO PreBook.Rooms[].Amenities.
+  // Distinct from hotel-level HotelFacilities shown on the Hotel Details page.
+  amenities?: string[];
   netAmount: number;
   panMandatory: boolean;
   // Exact number of PANs TBO requires for this booking (0 when panMandatory is
@@ -83,9 +86,9 @@ export type HotelBooking = {
   // Booking type: true = generate voucher immediately, false = hold booking
   isVoucherBooking?: boolean; // TBO Hold functionality: false = hold, true = voucher now
   // True once a voucher exists for this booking — either because Book itself
-  // vouchered it (isVoucherBooking=true) or because the automatic post-Book
-  // GenerateVoucher call succeeded for a Hold booking. Undefined means unknown
-  // (e.g. Hold booking whose auto-voucher attempt failed or hasn't run yet).
+  // vouchered it (isVoucherBooking=true) or because the customer explicitly
+  // generated the voucher for a Hold booking via /hotel/booking/[id].
+  // Undefined means unknown (e.g. Hold booking not yet vouchered).
   voucherStatus?: boolean;
   // Session management (TBO session valid for 40 minutes from Search)
   sessionStartedAt: string; // ISO timestamp when Search was performed

@@ -68,12 +68,12 @@ function ConfirmationInner() {
   // to the store's PreBook-time value if that fetch hasn't resolved.
   const displayedTotal = confirmedNetAmount ?? totalPrice;
 
-  // Hold bookings (isVoucherBooking=false) are booked with TBO and, in most
-  // cases, automatically vouchered right after Book (see verify-payment
-  // route). This panel only shows when that automatic voucher attempt did
-  // NOT already succeed — voucherStatus !== true covers both "failed" and
-  // "unknown/not yet run". Never shown for immediate-voucher bookings
-  // (isVoucherBooking=true), which TBO vouchers as part of Book itself.
+  // Hold bookings (isVoucherBooking=false) are booked with TBO but left
+  // un-vouchered until the customer explicitly generates the voucher from
+  // /hotel/booking/[id] (TBO certification: no automatic GenerateVoucher call).
+  // voucherStatus !== true covers both "not yet generated" and "unknown".
+  // Never shown for immediate-voucher bookings (isVoucherBooking=true), which
+  // TBO vouchers as part of Book itself.
   const needsVoucher = isVoucherBooking === false && bookingId != null && voucherStatus !== true;
 
   return (

@@ -303,6 +303,7 @@ export async function tboPreBookHotel(
     Status: data.Status,
     HotelCode: data.HotelResult?.[0]?.HotelCode,
     Rooms: data.HotelResult?.[0]?.Rooms?.length ?? 0,
+    ValidationInfo: data.ValidationInfo,
     // Certification/debug pricing fields — logging only, not used for control flow.
     Pricing: (data.HotelResult?.[0]?.Rooms ?? []).map((r) => ({
       BookingCode: r.BookingCode,

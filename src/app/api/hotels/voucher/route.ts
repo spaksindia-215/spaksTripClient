@@ -3,9 +3,27 @@ import { tboGenerateVoucher } from "@/lib/adapters/tbo/hotel/generateVoucher";
 import type { GenerateVoucherInput } from "@/lib/adapters/tbo/hotel/generateVoucher";
 import { validateVoucherDeadline } from "@/lib/adapters/tbo/hotel/voucherDeadline";
 import { TboError, TboBookingFailedError } from "@/lib/adapters/tbo/errors";
+import { internalApiHeaders } from "@/lib/server/internalApi";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:4000";
 
 function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
+}
+
+// Flips the dashboard-facing Booking record from "held" to "active" so the
+// customer stops seeing the "Generate Voucher" prompt. Best-effort — the TBO
+// voucher itself already succeeded by the time this runs, so a failure here
+// must never fail the voucher response.
+function notifyDashboardVouchered(bookingId: number): void {
+  fetch(new URL("/api/internal/hotel-booking-vouchered", API_BASE), {
+    method: "POST",
+    headers: { "content-type": "application/json", ...internalApiHeaders() },
+    body: JSON.stringify({ bookingId }),
+    cache: "no-store",
+  }).catch((e: unknown) => {
+    console.error("[hotel-booking-vouchered] fire-and-forget failed:", e instanceof Error ? e.message : String(e));
+  });
 }
 
 // POST /api/hotels/voucher
@@ -62,6 +80,7 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await tboGenerateVoucher(input);
+    notifyDashboardVouchered(bookingId);
     return NextResponse.json({ success: true, data: result });
   } catch (e) {
     const stack = e instanceof Error ? e.stack : String(e);
