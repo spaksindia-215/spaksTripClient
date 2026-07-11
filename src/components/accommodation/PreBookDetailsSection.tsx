@@ -3,6 +3,22 @@
 import type { HotelPreBookInfo } from "@/state/hotelBookingStore";
 import Badge from "@/components/ui/Badge";
 
+// TBO returns ChargeType as "Percentage" for a % of the booking value; anything
+// else (e.g. "Fixed") is an absolute amount in the booking currency. formatINR()
+// rounds to whole rupees, which would silently drop TBO's fractional charge
+// (e.g. 651.76), so fixed charges are formatted here with cents preserved.
+function formatCancellationCharge(chargeType: string, cancellationCharge: number): string {
+  if (chargeType?.trim().toLowerCase() === "percentage") {
+    return `${cancellationCharge}%`;
+  }
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cancellationCharge);
+}
+
 type Props = {
   preBook: HotelPreBookInfo;
   priceChanged?: {
@@ -111,7 +127,9 @@ export default function PreBookDetailsSection({ preBook, priceChanged }: Props) 
                   <p className="text-[12px] font-semibold text-blue-900">From {policy.fromDate}, cancellation charge applies</p>
                   <p className="text-[11px] text-blue-800">{policy.chargeType}</p>
                 </div>
-                <p className="text-[12px] font-bold text-blue-900 whitespace-nowrap">₹{policy.cancellationCharge.toLocaleString()}</p>
+                <p className="text-[12px] font-bold text-blue-900 whitespace-nowrap">
+                  {formatCancellationCharge(policy.chargeType, policy.cancellationCharge)}
+                </p>
               </div>
             ))}
           </div>
