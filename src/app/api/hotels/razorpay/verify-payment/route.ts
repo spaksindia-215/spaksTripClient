@@ -6,7 +6,6 @@ import type {
   HotelBookInput,
   HotelBookRoomDetails,
 } from "@/lib/adapters/tbo/hotel/book";
-import { tboGenerateVoucher } from "@/lib/adapters/tbo/hotel/generateVoucher";
 import { TboBookingFailedError, TboBookOutcomeUnknownError, TboError } from "@/lib/adapters/tbo/errors";
 import { verifyBookingStatusAfterTimeout } from "@/lib/adapters/tbo/hotel/bookingRecovery";
 import { logRequest, logResponse, logError } from "@/lib/adapters/tbo/log";
@@ -41,9 +40,12 @@ interface HotelPaymentRecord {
   tboBookingRefNo?:   string | null;
   tboConfirmationNo?: string | null;
   tboInvoiceNumber?:  string | null;
-  // Set only for Hold bookings (IsVoucherBooking=false) after an automatic
-  // post-Book GenerateVoucher attempt. Absent for Voucher-now bookings, which
-  // TBO already vouchers as part of Book itself (no separate call needed).
+  // Not set by this route. Historically written after an automatic post-Book
+  // GenerateVoucher call for Hold bookings; that auto-call has been removed
+  // per TBO certification (voucher generation is now customer-triggered only,
+  // via POST /api/hotels/voucher). Kept in the schema only for the idempotent-
+  // replay branch below; voucher state is otherwise read live from TBO via
+  // GetBookingDetail (/api/hotels/booking/[id]), not from this collection.
   voucherStatus?:     boolean;
   voucherGeneratedAt?: Date;
   voucherError?:      string;
@@ -576,48 +578,12 @@ export async function POST(request: NextRequest) {
       },
     );
 
-    // ── Auto-voucher Hold bookings ───────────────────────────────────────────
-    // Per TBO's Book documentation: "To book and voucher in one go, IsVoucherBooking
-    // should be true. In this case, there is no need to call GenerateVoucher
-    // separately." So this only runs for Hold bookings (IsVoucherBooking=false),
-    // which TBO requires to be vouchered via a separate call before
-    // LastCancellationDeadline. Skipped entirely if Book didn't actually confirm
-    // (no BookingId, price change, etc.) — voucher generation must never run
-    // against an unconfirmed booking. Best-effort: a voucher failure here must
-    // NOT affect the booking record, trigger a refund, or fail this request —
-    // the booking itself already succeeded at TBO. The customer can still
-    // retry vouchering later from /hotel/booking/[id].
-    let voucherResult: Awaited<ReturnType<typeof tboGenerateVoucher>> | null = null;
-    let voucherErrorMessage: string | undefined;
-    if (
-      bookInput.isVoucherBooking === false &&
-      tboResult.bookingStatus === "Confirmed" &&
-      typeof tboResult.bookingId === "number" &&
-      tboResult.bookingId > 0
-    ) {
-      try {
-        voucherResult = await tboGenerateVoucher({ bookingId: tboResult.bookingId });
-        await col.updateOne(
-          { razorpayOrderId, razorpayPaymentId },
-          {
-            $set: {
-              voucherStatus:      voucherResult.voucherStatus,
-              voucherGeneratedAt: new Date(),
-            },
-          },
-        );
-      } catch (voucherErr) {
-        voucherErrorMessage = voucherErr instanceof Error ? voucherErr.message : String(voucherErr);
-        logError("GENERATE_VOUCHER", voucherErr, {
-          bookingId: tboResult.bookingId,
-          razorpayPaymentId,
-        });
-        await col.updateOne(
-          { razorpayOrderId, razorpayPaymentId },
-          { $set: { voucherError: voucherErrorMessage } },
-        );
-      }
-    }
+    // ── No automatic voucher generation for Hold bookings ────────────────────
+    // Per TBO certification: GenerateVoucher must only be called when the
+    // customer explicitly requests it from the portal (see /hotel/booking/[id]
+    // "Generate Voucher" button → POST /api/hotels/voucher), never immediately
+    // after Book. Hold bookings (IsVoucherBooking=false) are left un-vouchered
+    // here; the booking simply remains on Hold until the customer acts.
 
     // Create a BookingModel entry for settlement reporting and customer dashboard (non-fatal: fire-and-forget).
     // For agent bookings (twoTierPricing), include full pricing; for customers, use simplified pricing.
@@ -639,13 +605,19 @@ export async function POST(request: NextRequest) {
     });
 
     // Customer dashboard recording (main-site logged-in customers). Best-effort.
+    // Hold bookings (isVoucherBooking=false) record as status "held" so the
+    // dashboard prompts the customer to generate their voucher; bookingId is
+    // stored so that prompt can link straight to /hotel/booking/[id].
     void recordCustomerBooking({
       productType: "hotel",
       pnr: tboResult.bookingRefNo ?? undefined,
       amount: Math.round(capturedPaise / 100),
+      status: bookInput.isVoucherBooking === false ? "held" : "active",
       details: {
         guests: totalAdults + totalChildren,
         hotelCode: bookingCode,
+        bookingId: tboResult.bookingId,
+        isVoucherBooking: bookInput.isVoucherBooking,
       },
     });
 
@@ -653,19 +625,10 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         ...tboResult,
-        // Present only for Hold bookings where auto-voucher ran (see above).
-        // Absent for Voucher-now bookings — tboResult.voucherStatus already
-        // reflects the voucher generated as part of Book itself.
-        ...(voucherResult
-          ? {
-              voucherGenerated: true,
-              voucherStatus: voucherResult.voucherStatus,
-              voucherConfirmationNo: voucherResult.confirmationNo,
-              voucherInvoiceNumber: voucherResult.invoiceNumber,
-            }
-          : voucherErrorMessage
-            ? { voucherGenerated: false, voucherError: voucherErrorMessage }
-            : {}),
+        // For Voucher-now bookings, tboResult.voucherStatus already reflects
+        // the voucher generated as part of Book itself. For Hold bookings,
+        // voucherStatus is absent/false here — the customer must explicitly
+        // generate the voucher later from /hotel/booking/[id].
       },
     });
 

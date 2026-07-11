@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -28,6 +29,15 @@ function formatAmount(booking: Booking): string {
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+// A Hold hotel booking needs its voucher generated before the customer can be
+// confirmed — see /hotel/booking/[id]. bookingId is TBO's numeric BookingId,
+// stamped into details by /api/hotels/razorpay/verify-payment.
+function hotelVoucherBookingId(b: Booking): number | null {
+  if (b.productType !== "hotel" || b.status !== "held") return null;
+  const bookingId = b.details?.bookingId;
+  return typeof bookingId === "number" ? bookingId : null;
 }
 
 export default function CustomerDashboardPage() {
@@ -137,38 +147,54 @@ export default function CustomerDashboardPage() {
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {upcoming.map((b) => (
-              <article key={b.id} className="flex flex-col gap-3 rounded-md border border-border-soft bg-surface p-5 shadow-card">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-base font-medium text-ink">{PRODUCT_LABELS[b.productType]}</span>
-                  <StatusBadge status={b.status} />
-                </div>
-                <p className="text-[13px] text-ink-muted">
-                  {b.pnr ? (
-                    <>
-                      PNR <span className="font-mono">{b.pnr}</span> ·{" "}
-                    </>
-                  ) : null}
-                  {formatAmount(b)} · Booked {formatDate(b.createdAt)}
-                </p>
-                <div className="flex items-center gap-2">
-                  {b.cancelRequestedAt ? (
-                    <Badge tone="info" size="sm">
-                      Cancellation requested
-                    </Badge>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      loading={cancellingId === b.id}
-                      onClick={() => handleCancelRequest(b.id)}
-                    >
-                      Request cancellation
-                    </Button>
+            {upcoming.map((b) => {
+              const voucherBookingId = hotelVoucherBookingId(b);
+              return (
+                <article key={b.id} className="flex flex-col gap-3 rounded-md border border-border-soft bg-surface p-5 shadow-card">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-base font-medium text-ink">{PRODUCT_LABELS[b.productType]}</span>
+                    <StatusBadge status={b.status} />
+                  </div>
+                  <p className="text-[13px] text-ink-muted">
+                    {b.pnr ? (
+                      <>
+                        PNR <span className="font-mono">{b.pnr}</span> ·{" "}
+                      </>
+                    ) : null}
+                    {formatAmount(b)} · Booked {formatDate(b.createdAt)}
+                  </p>
+                  {voucherBookingId != null && (
+                    <p className="text-[13px] text-warn-700">
+                      This booking is on hold — generate your voucher to confirm it.
+                    </p>
                   )}
-                </div>
-              </article>
-            ))}
+                  <div className="flex items-center gap-2">
+                    {voucherBookingId != null && (
+                      <Link
+                        href={`/hotel/booking/${voucherBookingId}`}
+                        className="inline-flex h-8 items-center justify-center rounded-md bg-accent-500 px-3 text-[13px] font-semibold text-white transition-colors duration-150 hover:bg-accent-600 active:bg-accent-700"
+                      >
+                        Generate Voucher
+                      </Link>
+                    )}
+                    {b.cancelRequestedAt ? (
+                      <Badge tone="info" size="sm">
+                        Cancellation requested
+                      </Badge>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={cancellingId === b.id}
+                        onClick={() => handleCancelRequest(b.id)}
+                      >
+                        Request cancellation
+                      </Button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
