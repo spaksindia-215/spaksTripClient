@@ -18,6 +18,10 @@ export type PackageItineraryRow = {
   dinner: boolean;
   accommodation: string;
   activities: string;
+  // Pin-dropped location for this day (optional).
+  locationLat: string;
+  locationLng: string;
+  locationAddress: string;
 };
 export type PackageDiscountRow = { label: string; percent: string; validUntil: string };
 export type PackageDepartureRow = { date: string; seatsTotal: string; status: string };
@@ -61,7 +65,7 @@ export type TourPackageFormState = {
 export type TourPackageFiles = { thumbnail: File | null; images: File[] };
 
 export function emptyItineraryRow(day: number): PackageItineraryRow {
-  return { day: String(day), title: "", description: "", breakfast: false, lunch: false, dinner: false, accommodation: "", activities: "" };
+  return { day: String(day), title: "", description: "", breakfast: false, lunch: false, dinner: false, accommodation: "", activities: "", locationLat: "", locationLng: "", locationAddress: "" };
 }
 
 export function emptyTourPackageForm(): TourPackageFormState {
@@ -133,6 +137,9 @@ export function tourPackageFormFromApi(pkg: TourPackageApi): TourPackageFormStat
             dinner: d.meals.dinner,
             accommodation: d.accommodation ?? "",
             activities: toCsv(d.activities),
+            locationLat: d.location ? String(d.location.lat) : "",
+            locationLng: d.location ? String(d.location.lng) : "",
+            locationAddress: d.location?.address ?? "",
           }))
         : [emptyItineraryRow(1)],
     discounts: pkg.pricing.discounts.map((d) => ({
@@ -200,15 +207,20 @@ export function buildTourPackageFormData(
     customInclusions: fromCsv(state.customInclusions),
     exclusions: fromCsv(state.exclusions),
     itinerary: state.itinerary
-      .filter((r) => r.title.trim() || r.description.trim() || r.accommodation.trim() || r.activities.trim())
-      .map((r, i) => ({
-        day: numOrUndef(r.day) ?? i + 1,
-        title: r.title.trim() || undefined,
-        description: r.description.trim() || undefined,
-        meals: { breakfast: r.breakfast, lunch: r.lunch, dinner: r.dinner },
-        accommodation: r.accommodation.trim() || undefined,
-        activities: fromCsv(r.activities),
-      })),
+      .filter((r) => r.title.trim() || r.description.trim() || r.accommodation.trim() || r.activities.trim() || r.locationLat.trim())
+      .map((r, i) => {
+        const lat = numOrUndef(r.locationLat);
+        const lng = numOrUndef(r.locationLng);
+        return {
+          day: numOrUndef(r.day) ?? i + 1,
+          title: r.title.trim() || undefined,
+          description: r.description.trim() || undefined,
+          meals: { breakfast: r.breakfast, lunch: r.lunch, dinner: r.dinner },
+          accommodation: r.accommodation.trim() || undefined,
+          activities: fromCsv(r.activities),
+          location: lat !== undefined && lng !== undefined ? { lat, lng, address: r.locationAddress.trim() || undefined } : undefined,
+        };
+      }),
     pricing: {
       basePrice: Number(state.basePrice),
       currency: state.currency,

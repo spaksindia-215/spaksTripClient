@@ -72,6 +72,9 @@ export type PackageSummary = {
   route: { origin?: string; destinations: string[]; durationDays: number; durationNights: number };
   referencePrice?: number;
   currency: string;
+  // Present in list responses too (toJSON returns the whole doc); typed loosely —
+  // cast to PackageSightseeingSpecs (etc.) per kind.
+  specs?: Record<string, unknown>;
   // Added by the list/catalog endpoints:
   operatorCount?: number;
   fromPrice?: number | null;
@@ -83,6 +86,88 @@ export type PackageDetail = PackageSummary & {
   inclusions: string[];
   exclusions: string[];
   specs: Record<string, unknown>;
+};
+
+// Shape of `specs` when kind === "sightseeing" (mirrors validateSightseeingSpecs on
+// the server / the partner SightseeingListing field set). All fields optional since
+// specs is stored loosely and older/partial templates may omit any of them.
+export type PackageSightseeingSpecs = {
+  category?: string;
+  location?: { island?: string; address?: string };
+  meetingPoint?: { instructions?: string };
+  duration?: { value?: number; unit?: string };
+  difficulty?: string;
+  ageRestriction?: { min?: number; max?: number };
+  groupSize?: { min?: number; max?: number };
+  whatToBring?: string[];
+  pricingModel?: string;
+  pricing?: { adult?: number; child?: number; infant?: number; groupPrice?: number };
+  availableDays?: string[];
+  timeSlots?: string[];
+  blackoutDates?: string[];
+  cancellationPolicy?: string;
+  bookingCutoffHours?: number;
+  languages?: string[];
+  accessibility?: string[];
+  termsAndConditions?: string;
+  videoUrl?: string;
+};
+
+// Shape of `specs` per kind for the verticals whose admin template reuses the
+// partner form's dynamic-row shape (mirrors tourForm.ts / tourPackageForm.ts /
+// cruiseForm.ts / taxiPackageForm.ts, minus the fields lifted to the shared
+// Package top level — title/description/highlights/tags/inclusions/exclusions/
+// currency/route). All optional: specs is stored loosely.
+export type PackageTourSpecs = {
+  category?: string;
+  languages?: string[];
+  coordinates?: { lat?: number; lng?: number };
+  durationHours?: number;
+  itinerary?: { time?: string; title?: string; description?: string; location?: string; locationLat?: number; locationLng?: number }[];
+  pricing?: { label: string; price: number; currency?: string; minAge?: number; maxAge?: number }[];
+  pickupPoints?: { name?: string; time?: string }[];
+  minGroupSize?: number;
+  maxGroupSize?: number;
+  privateAvailable?: boolean;
+  privatePrice?: number;
+  pickupIncluded?: boolean;
+  operatingDays?: string[];
+  startTimes?: string[];
+  advanceBookingHrs?: number;
+  blackoutDates?: string[];
+  videoUrl?: string;
+};
+
+export type PackageTourPackageSpecs = {
+  packageType?: string;
+  difficultyLevel?: string;
+  itinerary?: { day: number; title?: string; description?: string; meals?: { breakfast: boolean; lunch: boolean; dinner: boolean }; accommodation?: string; activities?: string[]; location?: { lat: number; lng: number; address?: string } }[];
+  discounts?: { label: string; percent: number; validUntil?: string }[];
+  departures?: { date: string; seatsTotal?: number; status?: string }[];
+  pricing?: { basePrice?: number; perPerson?: boolean; maxPersons?: number; childPrice?: number; infantPrice?: number; extraPersonCharge?: number; singleSupplement?: number };
+  videoUrl?: string;
+};
+
+export type PackageCruiseSpecs = {
+  cruiseType?: string;
+  vessel?: { name?: string; operator?: string; totalDecks?: number; builtYear?: number };
+  stops?: { port?: string; arrivalTime?: string; departureTime?: string }[];
+  cabins?: { type: string; label?: string; maxOccupancy?: number; pricePerPerson: number; totalCabins?: number; amenities?: string[]; isRefundable: boolean }[];
+  shipAmenities?: string[];
+  diningOptions?: string[];
+  mealsIncluded?: { breakfast: boolean; lunch: boolean; dinner: boolean };
+  departures?: { date: string; status?: string }[];
+  cancellationPolicy?: { freeCancelDays?: number; chargePercent?: number };
+  boardingAge?: { minAge?: number; maxAge?: number };
+};
+
+export type PackageTaxiPackageSpecs = {
+  totalKm?: number;
+  itinerary?: { day: number; title?: string; description?: string; activities?: string[]; distance?: number; overnight?: string }[];
+  pricing?: { basePrice?: number; maxPersons?: number; extraPersonCharge?: number; tollsIncluded?: boolean; driverAllowance?: boolean; fuelIncluded?: boolean };
+  startDates?: string[];
+  blackoutDates?: string[];
+  advanceBookingDays?: number;
 };
 
 export type OperatorContact = {

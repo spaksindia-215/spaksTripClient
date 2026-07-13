@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
+import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
 import { adminClient, type AdminPackage, type AdminEnquiry, type PackageComparison } from "@/lib/adminClient";
-import PackageTemplateModal from "@/components/superadmin/PackageTemplateModal";
+import PackageTemplateModal, { TEMPLATE_KINDS } from "@/components/superadmin/PackageTemplateModal";
+import { formatINR } from "@/lib/format";
 
 type Tab = "templates" | "enquiries";
 
@@ -17,16 +21,28 @@ const STATUS_TONE: Record<string, "neutral" | "success" | "warn" | "danger"> = {
 };
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
-  { value: "pending", label: "Pending review" },
-  { value: "active", label: "Live" },
   { value: "", label: "All" },
+  { value: "active", label: "Live" },
+  { value: "pending", label: "Pending review" },
+  { value: "suspended", label: "Suspended" },
 ];
+
+const KIND_LABELS: Record<string, string> = Object.fromEntries([
+  ...TEMPLATE_KINDS.map((k) => [k.value, k.label] as const),
+  ["bundle", "Bundle"] as const,
+]);
 
 const FIELD_LABELS: Record<string, string> = {
   title: "Title", description: "Description", highlights: "Highlights",
   inclusions: "Inclusions", exclusions: "Exclusions", destinations: "Destinations",
   duration: "Duration", itinerary: "Itinerary", referencePrice: "Reference price",
 };
+
+function authorName(p: AdminPackage): string | null {
+  if (p.origin !== "partner") return null;
+  if (p.author && typeof p.author === "object") return p.author.companyName || p.author.name || "Partner";
+  return "Partner";
+}
 
 // §5.3 — side-by-side review of a partner submission vs the closest platform
 // template. Surfaces a duplicate warning so the reviewer rejects unmodified copies.
@@ -100,6 +116,61 @@ function CompareModal({
   );
 }
 
+function PackageRow({
+  p, busy, onReview, onSetStatus, onDelete,
+}: {
+  p: AdminPackage;
+  busy: boolean;
+  onReview: (p: AdminPackage) => void;
+  onSetStatus: (p: AdminPackage, status: string) => void;
+  onDelete: (p: AdminPackage) => void;
+}) {
+  const img = p.thumbnail ?? p.images?.[0]?.url;
+  const author = authorName(p);
+  const duration = p.route.durationDays > 0 ? `${p.route.durationNights}N/${p.route.durationDays}D` : null;
+  return (
+    <article className="flex gap-4 rounded-xl border border-border-soft bg-white p-4 shadow-(--shadow-xs)">
+      {img ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={img} alt={p.title} className="h-24 w-32 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <div className="flex h-24 w-32 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-[11px] text-ink-muted">No image</div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="truncate text-[15px] font-bold text-ink">{p.title}</h3>
+          <Badge tone={STATUS_TONE[p.status] ?? "neutral"} size="sm">{p.status}</Badge>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-muted">
+          <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">{KIND_LABELS[p.kind] ?? p.kind}</span>
+          <span className="capitalize">{p.scope}</span>
+          {p.origin === "platform"
+            ? <Badge tone="accent" size="sm">Curated</Badge>
+            : <Badge tone="info" size="sm">by {author}</Badge>}
+          {p.kind === "bundle" && p.components ? <span>· {p.components.length} component(s)</span> : null}
+        </div>
+        <p className="truncate text-[12px] text-ink-muted">
+          {[duration, p.route.destinations.join(", ")].filter(Boolean).join(" · ") || "—"}
+          {p.referencePrice ? ` · ref ${formatINR(p.referencePrice)}` : ""}
+        </p>
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+          {p.origin === "partner" && p.status === "pending" && (
+            <Button variant="accent" size="sm" onClick={() => onReview(p)}>Review</Button>
+          )}
+          {p.status === "active" && (
+            <Link href={`/packages/${p.slug}`} target="_blank" className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-semibold text-ink-soft hover:bg-surface-muted">
+              View live ↗
+            </Link>
+          )}
+          {p.status !== "active" && <Button variant="ghost" size="sm" loading={busy} onClick={() => onSetStatus(p, "active")}>Activate</Button>}
+          {p.status === "active" && <Button variant="ghost" size="sm" loading={busy} onClick={() => onSetStatus(p, "suspended")}>Suspend</Button>}
+          <Button variant="danger" size="sm" loading={busy} onClick={() => onDelete(p)}>Delete</Button>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export default function AdminPackagesPage() {
   const toast = useToast();
@@ -109,25 +180,49 @@ export default function AdminPackagesPage() {
   const [enquiries, setEnquiries] = useState<AdminEnquiry[]>([]);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [kindFilter, setKindFilter] = useState<string>("");
+  const [query, setQuery] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewPkg, setReviewPkg] = useState<AdminPackage | null>(null);
 
   useEffect(() => {
     adminClient.me().then(() => setSession("in")).catch(() => setSession("out"));
   }, []);
 
+  // Honour a ?status= deep-link (e.g. from the Partner Listings "+ Add" flow).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("status");
+    if (q !== null && STATUS_FILTERS.some((f) => f.value === q)) setStatusFilter(q);
+  }, []);
+
   const refresh = useCallback(async () => {
     if (session !== "in") return;
     setLoading(true);
     try {
-      if (tab === "templates") setPackages(await adminClient.packages.list({ status: statusFilter || undefined }));
+      if (tab === "templates") setPackages(await adminClient.packages.list({ status: statusFilter || undefined, kind: kindFilter || undefined }));
       else setEnquiries(await adminClient.packages.enquiries());
     } catch (e) {
       toast.push({ title: "Failed to load", description: e instanceof Error ? e.message : undefined, tone: "danger" });
     } finally { setLoading(false); }
-  }, [tab, session, statusFilter, toast]);
+  }, [tab, session, statusFilter, kindFilter, toast]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  // A freshly created template is always "active"; make sure no filter hides it.
+  const handleTemplateSaved = () => {
+    if (statusFilter !== "" || kindFilter !== "") { setStatusFilter(""); setKindFilter(""); }
+    else void refresh();
+  };
+
+  // Search is client-side over the loaded page (title, destinations, author).
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return packages;
+    return packages.filter((p) =>
+      [p.title, p.route.destinations.join(" "), authorName(p) ?? ""].join(" ").toLowerCase().includes(q),
+    );
+  }, [packages, query]);
 
   if (session === "checking") return <div className="p-8 text-[14px] text-ink-muted">Checking session…</div>;
   if (session === "out") {
@@ -140,6 +235,7 @@ export default function AdminPackagesPage() {
   }
 
   const setStatus = async (p: AdminPackage, status: string) => {
+    setBusyId(p.id);
     try {
       await adminClient.packages.setStatus(p.id, status);
       setPackages((prev) =>
@@ -147,7 +243,20 @@ export default function AdminPackagesPage() {
           ? prev.filter((x) => x.id !== p.id) // fell out of the current filter view
           : prev.map((x) => (x.id === p.id ? { ...x, status: status as AdminPackage["status"] } : x)),
       );
+      toast.push({ title: status === "active" ? "Published" : `Marked ${status}`, tone: "success" });
     } catch (e) { toast.push({ title: "Update failed", description: e instanceof Error ? e.message : undefined, tone: "danger" }); }
+    finally { setBusyId(null); }
+  };
+
+  const deletePkg = async (p: AdminPackage) => {
+    if (!window.confirm(`Delete “${p.title}” permanently?\n\nThis also removes every operator offer attached to it. This cannot be undone.`)) return;
+    setBusyId(p.id);
+    try {
+      await adminClient.packages.remove(p.id);
+      setPackages((prev) => prev.filter((x) => x.id !== p.id));
+      toast.push({ title: "Listing deleted", tone: "success" });
+    } catch (e) { toast.push({ title: "Delete failed", description: e instanceof Error ? e.message : undefined, tone: "danger" }); }
+    finally { setBusyId(null); }
   };
 
   const setEnquiryStatus = async (id: string, status: string) => {
@@ -159,62 +268,70 @@ export default function AdminPackagesPage() {
     <div className="mx-auto max-w-5xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-extrabold text-ink">Packages &amp; Enquiries</h1>
-          <p className="text-[13px] text-ink-muted">Create fixed templates, moderate partner packages, and triage leads.</p>
+          <h1 className="text-[22px] font-extrabold text-ink">Marketplace Listings</h1>
+          <p className="text-[13px] text-ink-muted">Curated &amp; partner packages shown to customers — partners attach their operating price as offers.</p>
         </div>
         <div className="flex gap-2">
           <Link href="/superadmin" className="rounded-lg border border-border px-3 py-2 text-[13px] font-semibold text-ink-soft">← Admin</Link>
-          {tab === "templates" && <Button variant="accent" onClick={() => setFormOpen(true)}>New Template</Button>}
+          {tab === "templates" && <Button variant="accent" onClick={() => setFormOpen(true)}>+ New Listing</Button>}
         </div>
       </div>
 
       <div className="mt-5 flex gap-2">
-        {([["templates", "Packages"], ["enquiries", "Enquiries"]] as [Tab, string][]).map(([k, label]) => (
+        {([["templates", "Listings"], ["enquiries", "Enquiries"]] as [Tab, string][]).map(([k, label]) => (
           <Chip key={k} active={tab === k} onClick={() => setTab(k)}>{label}</Chip>
         ))}
       </div>
 
       {tab === "templates" && (
-        <div className="mt-4 flex gap-2">
-          {STATUS_FILTERS.map((f) => (
-            <Chip key={f.value || "all"} active={statusFilter === f.value} onClick={() => setStatusFilter(f.value)}>{f.label}</Chip>
-          ))}
+        <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-border-soft bg-surface-muted/50 p-3">
+          <div className="flex flex-wrap gap-2">
+            {STATUS_FILTERS.map((f) => (
+              <Chip key={f.value || "all"} active={statusFilter === f.value} onClick={() => setStatusFilter(f.value)}>{f.label}</Chip>
+            ))}
+          </div>
+          <div className="ml-auto flex flex-wrap items-end gap-2">
+            <Select label="" value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} aria-label="Filter by type">
+              <option value="">All types</option>
+              {TEMPLATE_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+              <option value="bundle">Bundle</option>
+            </Select>
+            <Input label="" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search title, destination, partner…" aria-label="Search listings" className="min-w-56" />
+          </div>
         </div>
       )}
 
-      {loading && <div className="mt-5 h-40 animate-pulse rounded-xl bg-border-soft/60" />}
+      {loading && (
+        <div className="mt-5 grid gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-border-soft/60" />)}
+        </div>
+      )}
 
       {!loading && tab === "templates" && (
         <div className="mt-5 grid gap-3">
-          {packages.length === 0 ? <p className="text-[14px] text-ink-muted">No packages in this view.</p> : packages.map((p) => (
-            <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-border-soft bg-white p-4">
-              <div className="min-w-0">
-                <p className="truncate text-[14px] font-bold text-ink">{p.title}</p>
-                <p className="text-[12px] text-ink-muted">
-                  {p.kind} · {p.scope} · {p.origin}
-                  {p.kind === "bundle" && p.components ? ` · ${p.components.length} component(s)` : ""}
-                  {p.route.destinations.length ? ` · ${p.route.destinations.join(", ")}` : ""}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {p.kind === "bundle" && <Badge tone="neutral" size="sm">Bundle</Badge>}
-                {p.origin === "partner" && <Badge tone="info" size="sm">Partner</Badge>}
-                <Badge tone={STATUS_TONE[p.status] ?? "neutral"} size="sm">{p.status}</Badge>
-                {/* Partner submissions get the §5.3 review (diff vs template) as the primary action. */}
-                {p.origin === "partner" && p.status === "pending" && (
-                  <Button variant="accent" size="sm" onClick={() => setReviewPkg(p)}>Review</Button>
-                )}
-                {p.status !== "active" && <Button variant="ghost" size="sm" onClick={() => setStatus(p, "active")}>Activate</Button>}
-                {p.status === "active" && <Button variant="ghost" size="sm" onClick={() => setStatus(p, "suspended")}>Suspend</Button>}
-              </div>
-            </div>
+          <p className="text-[12px] font-semibold text-ink-muted">{visible.length} listing{visible.length === 1 ? "" : "s"}</p>
+          {visible.length === 0 ? (
+            <EmptyState
+              title="No listings in this view"
+              subtitle={query ? "Try a different search or clear the filters." : "Create a listing — it goes live immediately and partners can price it from their dashboard."}
+              cta={!query ? <Button variant="accent" onClick={() => setFormOpen(true)}>+ New Listing</Button> : undefined}
+            />
+          ) : visible.map((p) => (
+            <PackageRow
+              key={p.id}
+              p={p}
+              busy={busyId === p.id}
+              onReview={setReviewPkg}
+              onSetStatus={setStatus}
+              onDelete={deletePkg}
+            />
           ))}
         </div>
       )}
 
       {!loading && tab === "enquiries" && (
         <div className="mt-5 grid gap-3">
-          {enquiries.length === 0 ? <p className="text-[14px] text-ink-muted">No enquiries yet.</p> : enquiries.map((e) => (
+          {enquiries.length === 0 ? <EmptyState title="No enquiries yet" subtitle="Customer enquiries against operator offers appear here." /> : enquiries.map((e) => (
             <div key={e.id} className="flex flex-col gap-2 rounded-xl border border-border-soft bg-white p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[14px] font-bold text-ink">{typeof e.package === "object" ? e.package.title : "Package"}</p>
@@ -235,7 +352,7 @@ export default function AdminPackagesPage() {
         </div>
       )}
 
-      <PackageTemplateModal open={formOpen} onClose={() => setFormOpen(false)} onSaved={refresh} />
+      <PackageTemplateModal open={formOpen} onClose={() => setFormOpen(false)} onSaved={handleTemplateSaved} />
       <CompareModal
         pkg={reviewPkg}
         onClose={() => setReviewPkg(null)}

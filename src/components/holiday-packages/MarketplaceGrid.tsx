@@ -17,6 +17,10 @@ import {
 
 type Props = {
   kind?: PackageKind;
+  // A surface backed by several kinds at once (e.g. the national/international
+  // holiday pages run on tour_package + taxi_package + holiday). Takes precedence
+  // over `kind`; results are fetched per kind and concatenated in the given order.
+  kinds?: PackageKind[];
   scope?: PackageScope;
   emptyHint?: string;
 };
@@ -62,18 +66,25 @@ function PackageCard({ pkg }: { pkg: PackageSummary }) {
   );
 }
 
-export default function MarketplaceGrid({ kind, scope, emptyHint }: Props) {
+export default function MarketplaceGrid({ kind, kinds, scope, emptyHint }: Props) {
   const [items, setItems] = useState<PackageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Serialized so the effect doesn't refire on a new array identity each render.
+  const kindsKey = kinds?.join(",");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    listPackages({ kind, scope, limit: 50 })
-      .then((res) => {
-        if (!cancelled) setItems(res.items);
+    const kindList = kindsKey ? (kindsKey.split(",") as PackageKind[]) : [kind];
+    Promise.all(kindList.map((k) => listPackages({ kind: k, scope, limit: 50 })))
+      .then((results) => {
+        if (cancelled) return;
+        // Concatenate per-kind results, de-duped by id (defensive — kinds are disjoint).
+        const seen = new Set<string>();
+        setItems(results.flatMap((r) => r.items).filter((p) => !seen.has(p.id) && seen.add(p.id)));
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load packages");
@@ -84,7 +95,7 @@ export default function MarketplaceGrid({ kind, scope, emptyHint }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [kind, scope]);
+  }, [kind, kindsKey, scope]);
 
   if (loading) {
     return (

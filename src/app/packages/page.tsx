@@ -48,7 +48,13 @@ export default function PackagesBrowsePage() {
           ))}
         </div>
         <div className="mt-8">
-          <MarketplaceGrid kind={kind} />
+          {/* Holidays is an umbrella surface: it runs on tour & taxi packages
+              (plus dedicated holiday listings), mirroring the national/
+              international holiday pages. */}
+          <MarketplaceGrid
+            kind={kind}
+            kinds={kind === "holiday" ? ["holiday", "tour_package", "taxi_package"] : undefined}
+          />
         </div>
       </main>
       <Footer />

@@ -8,7 +8,14 @@ import EmptyState from "@/components/ui/EmptyState";
 import { browseSightseeing } from "@/lib/sightseeingClient";
 import type { SightseeingListingApi } from "@/lib/partnerClient";
 import { CATEGORY_LABELS } from "@/lib/sightseeingForm";
+import { listPackages, type PackageSummary, type PackageSightseeingSpecs } from "@/lib/packagesClient";
+import { formatINR } from "@/lib/format";
 import { ServiceSchema } from "@/lib/seo/schemas";
+
+// One unified customer surface for sightseeing: partner-listed activities
+// (SightseeingListing) AND marketplace sightseeing packages (admin- or
+// partner-authored, priced by operator offers) render in the same grid. Both
+// are "actual listings" — the only difference is which detail page they open.
 
 function priceLabel(item: SightseeingListingApi): string {
   const v = item.pricing?.adult ?? item.pricing?.groupPrice;
@@ -16,8 +23,46 @@ function priceLabel(item: SightseeingListingApi): string {
   return `From ${item.currency} ${v.toLocaleString("en-IN")}`;
 }
 
+type Card = {
+  key: string;
+  href: string;
+  image?: string;
+  category: string;
+  title: string;
+  location: string;
+  price: string;
+  operators?: number;
+};
+
+function listingCard(item: SightseeingListingApi): Card {
+  return {
+    key: `l-${item.id}`,
+    href: `/sightseeing/${item.slug}`,
+    image: item.images[0]?.url,
+    category: CATEGORY_LABELS[item.category] ?? item.category,
+    title: item.title,
+    location: item.location?.island ?? "—",
+    price: priceLabel(item),
+  };
+}
+
+function packageCard(pkg: PackageSummary): Card {
+  const specs = (pkg.specs ?? {}) as PackageSightseeingSpecs;
+  const category = specs.category ? CATEGORY_LABELS[specs.category] ?? specs.category : "Sightseeing";
+  return {
+    key: `p-${pkg.id}`,
+    href: `/packages/${pkg.slug}`,
+    image: pkg.thumbnail ?? pkg.images?.[0]?.url,
+    category,
+    title: pkg.title,
+    location: specs.location?.island ?? pkg.route.destinations[0] ?? "—",
+    price: pkg.fromPrice != null ? `From ${formatINR(pkg.fromPrice)}` : "Enquire",
+    operators: pkg.operatorCount,
+  };
+}
+
 export default function SightseeingLandingPage() {
-  const [items, setItems] = useState<SightseeingListingApi[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,12 +70,21 @@ export default function SightseeingLandingPage() {
     let active = true;
     setLoading(true);
     setError(null);
-    browseSightseeing({ sort: "newest" })
-      .then((res) => {
-        if (active) setItems(res.items);
-      })
-      .catch((err) => {
-        if (active) setError(err instanceof Error ? err.message : "Could not load activities.");
+    // Both sources feed one grid; if one fails the other still renders.
+    Promise.allSettled([
+      listPackages({ kind: "sightseeing", limit: 50 }),
+      browseSightseeing({ sort: "newest" }),
+    ])
+      .then(([pkgs, listings]) => {
+        if (!active) return;
+        const out: Card[] = [];
+        if (pkgs.status === "fulfilled") out.push(...pkgs.value.items.map(packageCard));
+        if (listings.status === "fulfilled") out.push(...listings.value.items.map(listingCard));
+        if (pkgs.status === "rejected" && listings.status === "rejected") {
+          const reason = listings.reason;
+          setError(reason instanceof Error ? reason.message : "Could not load activities.");
+        }
+        setCards(out);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -64,29 +118,32 @@ export default function SightseeingLandingPage() {
             </div>
           ) : error ? (
             <EmptyState title="Something went wrong" subtitle={error} />
-          ) : items.length === 0 ? (
+          ) : cards.length === 0 ? (
             <EmptyState title="No activities found" subtitle="Check back soon." />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((item) => (
+              {cards.map((card) => (
                 <Link
-                  key={item.id}
-                  href={`/sightseeing/${item.slug}`}
+                  key={card.key}
+                  href={card.href}
                   className="group overflow-hidden rounded-2xl border border-border-soft bg-white shadow-(--shadow-xs) transition hover:shadow-(--shadow-pop)"
                 >
-                  {item.images[0]?.url ? (
+                  {card.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.images[0].url} alt={item.title} className="h-44 w-full object-cover" />
+                    <img src={card.image} alt={card.title} className="h-44 w-full object-cover" />
                   ) : (
                     <div className="flex h-44 w-full items-center justify-center bg-surface-muted text-sm text-ink-muted">No image</div>
                   )}
                   <div className="space-y-2 p-4">
                     <span className="inline-block rounded-full bg-accent-50 px-2.5 py-0.5 text-[11px] font-semibold text-accent-700">
-                      {CATEGORY_LABELS[item.category] ?? item.category}
+                      {card.category}
                     </span>
-                    <h2 className="line-clamp-1 text-[16px] font-bold text-ink">{item.title}</h2>
-                    <p className="text-[13px] text-ink-muted">{item.location?.island ?? "—"}</p>
-                    <p className="pt-1 text-[15px] font-extrabold text-ink">{priceLabel(item)}</p>
+                    <h2 className="line-clamp-1 text-[16px] font-bold text-ink">{card.title}</h2>
+                    <p className="text-[13px] text-ink-muted">{card.location}</p>
+                    <p className="pt-1 text-[15px] font-extrabold text-ink">
+                      {card.price}
+                      {card.operators ? <span className="ml-1 text-[11px] font-semibold text-ink-muted">· {card.operators} operator{card.operators === 1 ? "" : "s"}</span> : null}
+                    </p>
                   </div>
                 </Link>
               ))}

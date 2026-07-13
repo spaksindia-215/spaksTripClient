@@ -114,7 +114,13 @@ export type TourListingApi = {
   durationHours?: number;
   durationDays?: number;
   durationNights?: number;
-  itinerary: { time?: string; title?: string; description?: string; location?: string }[];
+  itinerary: {
+    time?: string;
+    title?: string;
+    description?: string;
+    location?: string;
+    coordinates?: { type: "Point"; coordinates: [number, number] };
+  }[];
   pricing: { label: string; price: number; currency: string; minAge?: number; maxAge?: number }[];
   minGroupSize: number;
   maxGroupSize?: number;
@@ -209,6 +215,7 @@ export type TourPackageApi = {
     meals: { breakfast: boolean; lunch: boolean; dinner: boolean };
     accommodation?: string;
     activities: string[];
+    location?: { lat: number; lng: number; address?: string };
   }[];
   pricing: {
     basePrice: number;

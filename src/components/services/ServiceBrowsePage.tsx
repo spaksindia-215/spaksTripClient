@@ -10,6 +10,8 @@ import {
   type ServiceModuleConfig,
   type ServiceListingApi,
 } from "@/lib/serviceModules";
+import { listPackages, type PackageKind, type PackageSummary } from "@/lib/packagesClient";
+import { formatINR } from "@/lib/format";
 
 type Props = {
   config: ServiceModuleConfig;
@@ -19,29 +21,64 @@ type Props = {
   forcedFilter?: Record<string, string>;
 };
 
+// A card shown in the unified grid — either a partner's typed listing or a
+// marketplace package (curated/partner) of the same vertical, priced by operators.
+type Card = {
+  key: string;
+  href: string;
+  image?: string;
+  title: string;
+  subtitle?: string;
+  footer: string;
+};
+
 export default function ServiceBrowsePage({ config, heading, blurb, forcedFilter }: Props) {
   const apiClient = servicePublicApi(config);
   const [items, setItems] = useState<ServiceListingApi[]>([]);
+  const [packages, setPackages] = useState<PackageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const res = await apiClient.browse({ ...forcedFilter });
-      setItems(res.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load listings.");
-    } finally {
-      setLoading(false);
+    // The vertical's typed listings and its marketplace packages feed one grid;
+    // if either source fails the other still renders.
+    const [listings, pkgs] = await Promise.allSettled([
+      apiClient.browse({ ...forcedFilter }),
+      listPackages({ kind: config.vertical as PackageKind, limit: 50 }),
+    ]);
+    if (listings.status === "fulfilled") setItems(listings.value.items);
+    if (pkgs.status === "fulfilled") setPackages(pkgs.value.items);
+    if (listings.status === "rejected" && pkgs.status === "rejected") {
+      setError(listings.reason instanceof Error ? listings.reason.message : "Could not load listings.");
     }
+    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.basePath, JSON.stringify(forcedFilter)]);
+  }, [config.basePath, config.vertical, JSON.stringify(forcedFilter)]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const cards: Card[] = [
+    ...packages.map((p): Card => ({
+      key: `p-${p.id}`,
+      href: `/packages/${p.slug}`,
+      image: p.thumbnail ?? p.images?.[0]?.url,
+      title: p.title,
+      subtitle: p.description,
+      footer: p.fromPrice != null ? `From ${formatINR(p.fromPrice)} · ${p.operatorCount ?? 0} operator${p.operatorCount === 1 ? "" : "s"}` : "Enquire for pricing",
+    })),
+    ...items.map((item): Card => ({
+      key: `l-${item.id}`,
+      href: `${config.detailBase}/${item.slug}`,
+      image: item.images[0]?.url,
+      title: item.title,
+      subtitle: item.description,
+      footer: "View details →",
+    })),
+  ];
 
   return (
     <div className="min-h-screen bg-white text-[#0E1E3A]">
@@ -59,26 +96,26 @@ export default function ServiceBrowsePage({ config, heading, blurb, forcedFilter
             </div>
           ) : error ? (
             <EmptyState title="Something went wrong" subtitle={error} />
-          ) : items.length === 0 ? (
+          ) : cards.length === 0 ? (
             <EmptyState title="Nothing found" subtitle="Check back soon." />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((item) => (
+              {cards.map((card) => (
                 <Link
-                  key={item.id}
-                  href={`${config.detailBase}/${item.slug}`}
+                  key={card.key}
+                  href={card.href}
                   className="group overflow-hidden rounded-2xl border border-border-soft bg-white shadow-(--shadow-xs) transition hover:shadow-(--shadow-pop)"
                 >
-                  {item.images[0]?.url ? (
+                  {card.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.images[0].url} alt={item.title} className="h-44 w-full object-cover" />
+                    <img src={card.image} alt={card.title} className="h-44 w-full object-cover" />
                   ) : (
                     <div className="flex h-44 w-full items-center justify-center bg-surface-muted text-sm text-ink-muted">No image</div>
                   )}
                   <div className="space-y-2 p-4">
-                    <h2 className="line-clamp-1 text-[16px] font-bold text-ink">{item.title}</h2>
-                    {item.description ? <p className="line-clamp-2 text-[13px] text-ink-muted">{item.description}</p> : null}
-                    <p className="pt-1 text-[13px] font-semibold text-brand-700">View details →</p>
+                    <h2 className="line-clamp-1 text-[16px] font-bold text-ink">{card.title}</h2>
+                    {card.subtitle ? <p className="line-clamp-2 text-[13px] text-ink-muted">{card.subtitle}</p> : null}
+                    <p className="pt-1 text-[13px] font-semibold text-brand-700">{card.footer}</p>
                   </div>
                 </Link>
               ))}

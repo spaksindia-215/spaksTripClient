@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -10,15 +11,16 @@ import Chip from "@/components/ui/Chip";
 import Modal from "@/components/ui/Modal";
 import Checkbox from "@/components/ui/Checkbox";
 import { useToast } from "@/components/ui/Toast";
+import OfferModal from "@/components/partner/OfferModal";
 import { formatINR } from "@/lib/format";
 import {
   partnerPackagesClient as client,
   type PackageSummary,
   type PartnerOffer,
   type PartnerEnquiry,
-  type OfferInput,
   type MyServiceGroup,
 } from "@/lib/partnerPackagesClient";
+import { kindLabel } from "@/lib/packagesClient";
 import type { PackageKind, PackageScope, PackageComponent } from "@/lib/packagesClient";
 
 type Tab = "mine" | "catalog" | "offers" | "enquiries";
@@ -46,85 +48,6 @@ const STATUS_TONE: Record<string, "neutral" | "success" | "warn" | "danger"> = {
 
 function packageTitle(p: PartnerOffer["package"]): string {
   return typeof p === "object" ? p.title : "Package";
-}
-
-// ── Offer modal (create/edit a price on a package) ──────────────────────────────
-function OfferModal({
-  open, onClose, packageId, packageLabel, existing, onSaved,
-}: {
-  open: boolean;
-  onClose: () => void;
-  packageId: string;
-  packageLabel: string;
-  existing?: PartnerOffer | null;
-  onSaved: () => void;
-}) {
-  const toast = useToast();
-  const [price, setPrice] = useState("");
-  const [perPerson, setPerPerson] = useState(true);
-  const [pricingNote, setPricingNote] = useState("");
-  const [showContact, setShowContact] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [email, setEmail] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setPrice(existing ? String(existing.price) : "");
-    setPerPerson(existing ? existing.perPerson : true);
-    setPricingNote(existing?.pricingNote ?? "");
-    setShowContact(existing?.showDirectContact ?? false);
-    setPhone(existing?.directContact?.phone ?? "");
-    setWhatsapp(existing?.directContact?.whatsapp ?? "");
-    setEmail(existing?.directContact?.email ?? "");
-  }, [open, existing]);
-
-  const save = async () => {
-    const n = Number(price);
-    if (!Number.isFinite(n) || n < 0) { toast.push({ title: "Enter a valid price", tone: "warn" }); return; }
-    setSaving(true);
-    try {
-      const payload: OfferInput = {
-        packageId,
-        price: n,
-        perPerson,
-        pricingNote: pricingNote.trim() || undefined,
-        showDirectContact: showContact,
-        directContact: showContact ? { phone: phone.trim() || undefined, whatsapp: whatsapp.trim() || undefined, email: email.trim() || undefined } : undefined,
-      };
-      if (existing) await client.updateOffer(existing.id, payload);
-      else await client.upsertOffer(payload);
-      toast.push({ title: "Offer saved", tone: "success" });
-      onSaved();
-      onClose();
-    } catch (e) {
-      toast.push({ title: "Could not save offer", description: e instanceof Error ? e.message : undefined, tone: "danger" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title={`Your offer · ${packageLabel}`} size="md"
-      footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="accent" onClick={save} loading={saving}>Save Offer</Button></div>}>
-      <div className="flex flex-col gap-3 p-1">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Your operating price (₹)" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g. 24999" />
-          <div className="flex items-end pb-1"><Checkbox label="Per person" checked={perPerson} onChange={(e) => setPerPerson(e.target.checked)} /></div>
-        </div>
-        <Input label="Pricing note (optional)" value={pricingNote} onChange={(e) => setPricingNote(e.target.value)} placeholder="e.g. up to 4 pax, includes tolls" />
-        <Checkbox label="Share my direct contact with customers" checked={showContact} onChange={(e) => setShowContact(e.target.checked)} />
-        {showContact && (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <Input label="WhatsApp" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
-            <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-        )}
-      </div>
-    </Modal>
-  );
 }
 
 // ── Create-package modal ────────────────────────────────────────────────────────
@@ -395,12 +318,20 @@ export default function PartnerPackagesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [bundleOpen, setBundleOpen] = useState(false);
   const [offerTarget, setOfferTarget] = useState<{ id: string; label: string; existing?: PartnerOffer | null } | null>(null);
+  const [catalogKind, setCatalogKind] = useState<string>("");
+  const [catalogQuery, setCatalogQuery] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       if (tab === "mine") setMine(await client.listMine());
-      else if (tab === "catalog") setCatalog(await client.browseCatalog());
+      else if (tab === "catalog") {
+        // Offers are loaded alongside the catalog so each card can show the
+        // partner's current price on that package (edit) vs. a "set price" CTA.
+        const [cat, offs] = await Promise.all([client.browseCatalog(), client.listOffers()]);
+        setCatalog(cat);
+        setOffers(offs);
+      }
       else if (tab === "offers") setOffers(await client.listOffers());
       else if (tab === "enquiries") setEnquiries(await client.listEnquiries());
     } catch (e) {
@@ -409,6 +340,24 @@ export default function PartnerPackagesPage() {
       setLoading(false);
     }
   }, [tab, toast]);
+
+  // The partner's existing offer per package id (for offer-aware catalog cards).
+  const offerByPackage = useMemo(() => {
+    const map = new Map<string, PartnerOffer>();
+    for (const o of offers) {
+      const pid = typeof o.package === "object" && o.package ? o.package.id : typeof o.package === "string" ? o.package : "";
+      if (pid) map.set(pid, o);
+    }
+    return map;
+  }, [offers]);
+
+  const visibleCatalog = useMemo(() => {
+    const q = catalogQuery.trim().toLowerCase();
+    return catalog.filter((p) =>
+      (!catalogKind || p.kind === catalogKind) &&
+      (!q || [p.title, p.route.destinations.join(" ")].join(" ").toLowerCase().includes(q)),
+    );
+  }, [catalog, catalogKind, catalogQuery]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -424,6 +373,17 @@ export default function PartnerPackagesPage() {
   const removeOffer = async (id: string) => {
     try { await client.removeOffer(id); setOffers((p) => p.filter((o) => o.id !== id)); }
     catch (e) { toast.push({ title: "Delete failed", description: e instanceof Error ? e.message : undefined, tone: "danger" }); }
+  };
+
+  const removePackage = async (p: PackageSummary) => {
+    if (!window.confirm(`Delete “${p.title}”? This also removes any operator offers on it and cannot be undone.`)) return;
+    try {
+      await client.remove(p.id);
+      setMine((prev) => prev.filter((x) => x.id !== p.id));
+      toast.push({ title: "Package deleted", tone: "success" });
+    } catch (e) {
+      toast.push({ title: "Delete failed", description: e instanceof Error ? e.message : undefined, tone: "danger" });
+    }
   };
 
   return (
@@ -461,7 +421,7 @@ export default function PartnerPackagesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone={STATUS_TONE[p.status] ?? "neutral"} size="sm">{p.status}</Badge>
-                  <Button variant="ghost" size="sm" onClick={() => client.remove(p.id).then(refresh)}>Delete</Button>
+                  <Button variant="ghost" size="sm" onClick={() => removePackage(p)}>Delete</Button>
                 </div>
               </div>
             ))}
@@ -471,15 +431,59 @@ export default function PartnerPackagesPage() {
 
       {/* Browse & Offer */}
       {!loading && tab === "catalog" && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {catalog.map((p) => (
-            <div key={p.id} className="flex flex-col gap-2 rounded-xl border border-border-soft bg-white p-4">
-              <p className="text-[14px] font-bold text-ink">{p.title}</p>
-              <p className="text-[12px] text-ink-muted">{p.kind} · {p.scope}{p.origin === "platform" ? " · Curated" : ""}</p>
-              <p className="text-[12px] text-ink-soft">{p.operatorCount ?? 0} operator(s){p.fromPrice != null ? ` · from ${formatINR(p.fromPrice)}` : ""}</p>
-              <Button variant="accent" size="sm" className="mt-1" onClick={() => setOfferTarget({ id: p.id, label: p.title })}>Make an offer</Button>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border-soft bg-surface-muted/50 p-3">
+            <Select label="" value={catalogKind} onChange={(e) => setCatalogKind(e.target.value)} aria-label="Filter by type">
+              <option value="">All types</option>
+              {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+              <option value="bundle">Bundle</option>
+            </Select>
+            <Input label="" value={catalogQuery} onChange={(e) => setCatalogQuery(e.target.value)} placeholder="Search title or destination…" aria-label="Search catalog" className="min-w-56" />
+            <p className="ml-auto text-[12px] font-semibold text-ink-muted">{visibleCatalog.length} package{visibleCatalog.length === 1 ? "" : "s"}</p>
+          </div>
+
+          {visibleCatalog.length === 0 ? (
+            <p className="text-[14px] text-ink-muted">Nothing matches this view. Curated listings you can price appear here as soon as the platform publishes them.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleCatalog.map((p) => {
+                const mineOffer = offerByPackage.get(p.id);
+                const img = p.thumbnail ?? p.images?.[0]?.url;
+                return (
+                  <div key={p.id} className="flex flex-col overflow-hidden rounded-xl border border-border-soft bg-white">
+                    {/* The card opens the real customer listing page so the partner
+                        reviews it exactly as a customer sees it, then prices it there. */}
+                    <Link href={`/packages/${p.slug}`} target="_blank" className="block">
+                      {img ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img} alt={p.title} className="h-32 w-full object-cover" />
+                      ) : (
+                        <div className="flex h-32 w-full items-center justify-center bg-surface-muted text-[11px] text-ink-muted">No image</div>
+                      )}
+                    </Link>
+                    <div className="flex flex-1 flex-col gap-1.5 p-4">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">{kindLabel(p.kind, p.scope)}</span>
+                        {p.origin === "platform" && <Badge tone="accent" size="sm">Curated</Badge>}
+                      </div>
+                      <Link href={`/packages/${p.slug}`} target="_blank" className="text-[14px] font-bold text-ink hover:text-brand-700">{p.title}</Link>
+                      {p.route.destinations.length > 0 && <p className="text-[12px] text-ink-muted">{p.route.destinations.slice(0, 3).join(" · ")}</p>}
+                      <p className="text-[12px] text-ink-soft">{p.operatorCount ?? 0} operator(s){p.fromPrice != null ? ` · from ${formatINR(p.fromPrice)}` : ""}</p>
+                      {mineOffer && <p className="text-[13px] font-bold text-success-700">Your price: {formatINR(mineOffer.price)}{mineOffer.perPerson ? "/person" : ""}</p>}
+                      <div className="mt-auto flex gap-1.5 pt-2">
+                        <Link href={`/packages/${p.slug}`} target="_blank" className="flex-1 rounded-lg border border-border px-3 py-1.5 text-center text-[12px] font-semibold text-ink-soft hover:bg-surface-muted">
+                          Review listing ↗
+                        </Link>
+                        <Button variant={mineOffer ? "secondary" : "accent"} size="sm" onClick={() => setOfferTarget({ id: p.id, label: p.title, existing: mineOffer ?? null })}>
+                          {mineOffer ? "Edit price" : "Set your price"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -540,7 +544,7 @@ export default function PartnerPackagesPage() {
           packageId={offerTarget.id}
           packageLabel={offerTarget.label}
           existing={offerTarget.existing}
-          onSaved={() => { if (tab === "offers") refresh(); }}
+          onSaved={() => refresh()}
         />
       )}
     </div>

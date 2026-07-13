@@ -9,6 +9,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import LocationPickerField from "./LocationPickerField";
 import { useSubmitForReview, SUBMITTABLE_STATUSES } from "./useSubmitForReview";
 import {
   partnerClient,
@@ -113,6 +114,9 @@ export default function TourPackageManager() {
 
   function setItinerary(index: number, key: keyof PackageItineraryRow, value: string | boolean) {
     setForm((c) => ({ ...c, itinerary: c.itinerary.map((r, i) => (i === index ? { ...r, [key]: value } : r)) }));
+  }
+  function patchItinerary(index: number, patch: Partial<PackageItineraryRow>) {
+    setForm((c) => ({ ...c, itinerary: c.itinerary.map((r, i) => (i === index ? { ...r, ...patch } : r)) }));
   }
   function setDiscount(index: number, key: keyof PackageDiscountRow, value: string) {
     setForm((c) => ({ ...c, discounts: c.discounts.map((r, i) => (i === index ? { ...r, [key]: value } : r)) }));
@@ -237,6 +241,10 @@ export default function TourPackageManager() {
                     <Checkbox id={`tp-it-l-${index}`} label="Lunch" checked={row.lunch} onChange={(e) => setItinerary(index, "lunch", e.target.checked)} />
                     <Checkbox id={`tp-it-d-${index}`} label="Dinner" checked={row.dinner} onChange={(e) => setItinerary(index, "dinner", e.target.checked)} />
                   </div>
+                  <LocationPickerField
+                    lat={row.locationLat} lng={row.locationLng} address={row.locationAddress}
+                    onChange={(v) => patchItinerary(index, { locationLat: v.lat, locationLng: v.lng, locationAddress: v.address })}
+                  />
                 </div>
               </div>
             ))}

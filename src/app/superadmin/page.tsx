@@ -896,7 +896,10 @@ export default function SuperadminPage() {
             <PackageTemplateModal
               open={templateOpen}
               onClose={() => setTemplateOpen(false)}
-              onSaved={() => setTemplateOpen(false)}
+              // This tab's own table lists typed partner listings (a different
+              // collection) and will never show a Package template, so send the
+              // admin straight to where it actually lives, already unfiltered.
+              onSaved={() => { setTemplateOpen(false); router.push("/superadmin/packages?status="); }}
               initialKind={TEMPLATE_KIND_FOR[listingType] ?? "holiday"}
               lockKind={Boolean(TEMPLATE_KIND_FOR[listingType])}
             />

@@ -13,7 +13,271 @@ import {
   type PackageOffer,
   type PackageImage,
   type Operator,
+  type PackageSightseeingSpecs,
+  type PackageTourSpecs,
+  type PackageTourPackageSpecs,
+  type PackageCruiseSpecs,
+  type PackageTaxiPackageSpecs,
 } from "@/lib/packagesClient";
+import { useAuthStore } from "@/state/authStore";
+import { partnerPackagesClient, type PartnerOffer } from "@/lib/partnerPackagesClient";
+import OfferModal from "@/components/partner/OfferModal";
+import { PACKAGE_KIND_SPECS, specDisplayValue } from "@/lib/packageKindSpecs";
+
+// Generic per-kind details, read from Package.specs using the shared kind-spec
+// config (every vertical except sightseeing, which has its own richer block).
+function KindDetails({ kind, specs }: { kind: PackageDetail["kind"]; specs: Record<string, unknown> }) {
+  const fields = PACKAGE_KIND_SPECS[kind];
+  if (!fields) return null;
+  const rows = fields
+    .map((f) => ({ label: f.label, value: specDisplayValue(f, specs[f.key]) }))
+    .filter((r) => r.value !== "");
+  if (rows.length === 0) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {rows.map((r) => (
+        <div key={r.label} className="rounded-xl border border-border-soft bg-white px-4 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{r.label}</p>
+          <p className="mt-0.5 text-[14px] font-semibold text-ink">{r.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const SIGHTSEEING_DAY_LABELS: Record<string, string> = {
+  mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",
+};
+function titleCase(value: string): string {
+  return value.split("_").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+
+// Sightseeing template details — the fields captured by the admin template form
+// (mirroring the partner activity form), read from Package.specs.
+function SightseeingDetails({ specs }: { specs: PackageSightseeingSpecs }) {
+  const duration = specs.duration?.value ? `${specs.duration.value} ${titleCase(specs.duration.unit ?? "hours")}` : undefined;
+  const groupSize = specs.groupSize?.min || specs.groupSize?.max
+    ? `${specs.groupSize?.min ?? 1}${specs.groupSize?.max ? `–${specs.groupSize.max}` : "+"} people`
+    : undefined;
+  const meetingPoint = specs.meetingPoint?.instructions;
+  const facts: { label: string; value: string }[] = [
+    specs.category ? { label: "Category", value: titleCase(specs.category) } : null,
+    duration ? { label: "Duration", value: duration } : null,
+    specs.difficulty ? { label: "Difficulty", value: titleCase(specs.difficulty) } : null,
+    groupSize ? { label: "Group size", value: groupSize } : null,
+    specs.languages?.length ? { label: "Languages", value: specs.languages.join(", ") } : null,
+    specs.location?.island ? { label: "Location", value: [specs.location.island, specs.location.address].filter(Boolean).join(", ") } : null,
+    specs.timeSlots?.length ? { label: "Time slots", value: specs.timeSlots.join(", ") } : null,
+    specs.bookingCutoffHours != null ? { label: "Booking cutoff", value: `${specs.bookingCutoffHours}h before` } : null,
+  ].filter((f): f is { label: string; value: string } => f !== null);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {facts.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {facts.map((f) => (
+            <div key={f.label} className="rounded-xl border border-border-soft bg-white px-4 py-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{f.label}</p>
+              <p className="mt-0.5 text-[14px] font-semibold text-ink">{f.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {meetingPoint && (
+        <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Meeting point: </span>{meetingPoint}</p>
+      )}
+      {specs.whatToBring?.length ? (
+        <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">What to bring: </span>{specs.whatToBring.join(", ")}</p>
+      ) : null}
+      {specs.availableDays?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {specs.availableDays.map((d) => (
+            <span key={d} className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-bold text-brand-700">
+              {SIGHTSEEING_DAY_LABELS[d] ?? titleCase(d)}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {specs.cancellationPolicy && (
+        <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Cancellation: </span>{titleCase(specs.cancellationPolicy)}</p>
+      )}
+    </div>
+  );
+}
+
+// Shared fact-grid used by every kind's bespoke details block.
+function FactGrid({ facts }: { facts: { label: string; value: string }[] }) {
+  if (facts.length === 0) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {facts.map((f) => (
+        <div key={f.label} className="rounded-xl border border-border-soft bg-white px-4 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">{f.label}</p>
+          <p className="mt-0.5 text-[14px] font-semibold text-ink">{f.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ItineraryList({ days }: { days: { day?: number; title?: string; description?: string; time?: string; location?: string; activities?: string[]; accommodation?: string; distance?: number; overnight?: string; geo?: { lat: number; lng: number; address?: string } }[] }) {
+  if (!days || days.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {days.map((d, i) => (
+        <div key={i} className="rounded-lg border border-border-soft bg-white px-4 py-2.5">
+          <p className="text-[13px] font-bold text-ink">
+            {d.day != null ? `Day ${d.day}` : d.time ?? `Stop ${i + 1}`}{d.title ? ` — ${d.title}` : ""}
+          </p>
+          {d.location && <p className="text-[12px] text-ink-muted">📍 {d.location}</p>}
+          {d.description && <p className="mt-1 text-[12px] text-ink-soft">{d.description}</p>}
+          {d.activities?.length ? <p className="mt-1 text-[12px] text-ink-muted">🎯 {d.activities.join(" · ")}</p> : null}
+          {d.accommodation && <p className="mt-1 text-[12px] text-ink-muted">🏨 {d.accommodation}</p>}
+          {d.overnight && <p className="mt-1 text-[12px] text-ink-muted">🌙 Overnight: {d.overnight}</p>}
+          {d.distance != null && <p className="mt-1 text-[12px] text-ink-muted">📏 {d.distance} km</p>}
+          {d.geo && (
+            <p className="mt-1 text-[12px] text-ink-muted">
+              📍 {d.geo.address || `${d.geo.lat.toFixed(5)}, ${d.geo.lng.toFixed(5)}`}{" "}
+              <a href={`https://maps.google.com/?q=${d.geo.lat},${d.geo.lng}`} target="_blank" rel="noreferrer" className="font-semibold text-brand-600 hover:text-brand-700">View on map ↗</a>
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Tour template details — mirrors tourForm.ts.
+function TourDetails({ specs }: { specs: PackageTourSpecs }) {
+  const facts: { label: string; value: string }[] = [
+    specs.category ? { label: "Category", value: titleCase(specs.category) } : null,
+    specs.durationHours ? { label: "Duration", value: `${specs.durationHours} hours` } : null,
+    specs.languages?.length ? { label: "Languages", value: specs.languages.join(", ") } : null,
+    specs.minGroupSize || specs.maxGroupSize ? { label: "Group size", value: `${specs.minGroupSize ?? 1}${specs.maxGroupSize ? `–${specs.maxGroupSize}` : "+"} people` } : null,
+    specs.privateAvailable ? { label: "Private tour", value: specs.privatePrice != null ? `Available · ${formatINR(specs.privatePrice)}` : "Available" } : null,
+    specs.pickupIncluded ? { label: "Pickup", value: "Included" } : null,
+    specs.operatingDays?.length ? { label: "Operating days", value: specs.operatingDays.map(titleCase).join(", ") } : null,
+    specs.startTimes?.length ? { label: "Start times", value: specs.startTimes.join(", ") } : null,
+    specs.advanceBookingHrs != null ? { label: "Advance booking", value: `${specs.advanceBookingHrs}h before` } : null,
+  ].filter((f): f is { label: string; value: string } => f !== null);
+  return (
+    <div className="flex flex-col gap-4">
+      <FactGrid facts={facts} />
+      {specs.pricing?.length ? (
+        <div className="rounded-xl border border-border-soft bg-surface-muted/50 p-3">
+          <p className="mb-1.5 text-[13px] font-bold text-ink">Pricing tiers</p>
+          {specs.pricing.map((t, i) => (
+            <div key={i} className="flex items-center justify-between text-[12px] text-ink-soft">
+              <span>{t.label}{t.minAge != null || t.maxAge != null ? ` (${t.minAge ?? 0}–${t.maxAge ?? "∞"} yrs)` : ""}</span>
+              <span className="font-bold text-ink">{formatINR(t.price)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {specs.pickupPoints?.length ? (
+        <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Pickup points: </span>{specs.pickupPoints.map((p) => [p.name, p.time].filter(Boolean).join(" @ ")).join(", ")}</p>
+      ) : null}
+      <ItineraryList
+        days={(specs.itinerary ?? []).map(({ location, locationLat, locationLng, ...d }) => {
+          const hasGeo = locationLat != null && locationLng != null;
+          return {
+            ...d,
+            location: hasGeo ? undefined : location,
+            geo: hasGeo ? { lat: locationLat, lng: locationLng, address: location } : undefined,
+          };
+        })}
+      />
+    </div>
+  );
+}
+
+// Tour package template details — mirrors tourPackageForm.ts.
+function TourPackageDetails({ specs }: { specs: PackageTourPackageSpecs }) {
+  const facts: { label: string; value: string }[] = [
+    specs.packageType ? { label: "Package type", value: titleCase(specs.packageType) } : null,
+    specs.difficultyLevel ? { label: "Difficulty", value: titleCase(specs.difficultyLevel) } : null,
+    specs.pricing?.maxPersons ? { label: "Max persons", value: String(specs.pricing.maxPersons) } : null,
+    specs.pricing?.childPrice != null ? { label: "Child price", value: formatINR(specs.pricing.childPrice) } : null,
+    specs.pricing?.singleSupplement != null ? { label: "Single supplement", value: formatINR(specs.pricing.singleSupplement) } : null,
+  ].filter((f): f is { label: string; value: string } => f !== null);
+  return (
+    <div className="flex flex-col gap-4">
+      <FactGrid facts={facts} />
+      {specs.discounts?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {specs.discounts.map((d, i) => (
+            <span key={i} className="rounded-full bg-success-50 px-2.5 py-1 text-[11px] font-bold text-success-700">{d.label} · {d.percent}% off</span>
+          ))}
+        </div>
+      ) : null}
+      {specs.departures?.length ? (
+        <div className="rounded-xl border border-border-soft bg-surface-muted/50 p-3">
+          <p className="mb-1.5 text-[13px] font-bold text-ink">Upcoming departures</p>
+          {specs.departures.map((d, i) => (
+            <div key={i} className="flex items-center justify-between text-[12px] text-ink-soft">
+              <span>{new Date(d.date).toLocaleDateString()}</span>
+              <span>{d.seatsTotal != null ? `${d.seatsTotal} seats` : ""} {d.status ? `· ${titleCase(d.status)}` : ""}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <ItineraryList days={(specs.itinerary ?? []).map(({ location, ...d }) => ({ ...d, geo: location }))} />
+    </div>
+  );
+}
+
+// Cruise template details — mirrors cruiseForm.ts.
+function CruiseDetails({ specs }: { specs: PackageCruiseSpecs }) {
+  const facts: { label: string; value: string }[] = [
+    specs.cruiseType ? { label: "Cruise type", value: titleCase(specs.cruiseType) } : null,
+    specs.vessel?.name ? { label: "Vessel", value: [specs.vessel.name, specs.vessel.operator].filter(Boolean).join(" · ") } : null,
+    specs.vessel?.totalDecks ? { label: "Decks", value: String(specs.vessel.totalDecks) } : null,
+    specs.boardingAge?.minAge != null || specs.boardingAge?.maxAge != null ? { label: "Boarding age", value: `${specs.boardingAge?.minAge ?? 0}–${specs.boardingAge?.maxAge ?? "∞"}` } : null,
+    specs.cancellationPolicy?.freeCancelDays != null ? { label: "Free cancellation", value: `${specs.cancellationPolicy.freeCancelDays} days before` } : null,
+  ].filter((f): f is { label: string; value: string } => f !== null);
+  const meals = [specs.mealsIncluded?.breakfast && "Breakfast", specs.mealsIncluded?.lunch && "Lunch", specs.mealsIncluded?.dinner && "Dinner"].filter(Boolean).join(", ");
+  return (
+    <div className="flex flex-col gap-4">
+      <FactGrid facts={facts} />
+      {specs.cabins?.length ? (
+        <div className="rounded-xl border border-border-soft bg-surface-muted/50 p-3">
+          <p className="mb-1.5 text-[13px] font-bold text-ink">Cabin types</p>
+          {specs.cabins.map((c, i) => (
+            <div key={i} className="flex items-center justify-between text-[12px] text-ink-soft">
+              <span>{titleCase(c.type)}{c.label ? ` — ${c.label}` : ""}{c.maxOccupancy ? ` (up to ${c.maxOccupancy})` : ""}</span>
+              <span className="font-bold text-ink">{formatINR(c.pricePerPerson)}/person</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {specs.stops?.length ? (
+        <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Stops: </span>{specs.stops.map((s) => s.port).filter(Boolean).join(" → ")}</p>
+      ) : null}
+      {specs.shipAmenities?.length ? <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Ship amenities: </span>{specs.shipAmenities.join(", ")}</p> : null}
+      {specs.diningOptions?.length ? <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Dining: </span>{specs.diningOptions.join(", ")}</p> : null}
+      {meals && <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Meals included: </span>{meals}</p>}
+    </div>
+  );
+}
+
+// Taxi package template details — mirrors taxiPackageForm.ts.
+function TaxiPackageDetails({ specs }: { specs: PackageTaxiPackageSpecs }) {
+  const facts: { label: string; value: string }[] = [
+    specs.totalKm ? { label: "Total distance", value: `${specs.totalKm} km` } : null,
+    specs.pricing?.maxPersons ? { label: "Max persons", value: String(specs.pricing.maxPersons) } : null,
+    specs.pricing?.tollsIncluded ? { label: "Tolls", value: "Included" } : null,
+    specs.pricing?.driverAllowance ? { label: "Driver allowance", value: "Included" } : null,
+    specs.pricing?.fuelIncluded ? { label: "Fuel", value: "Included" } : null,
+    specs.advanceBookingDays != null ? { label: "Advance booking", value: `${specs.advanceBookingDays} days before` } : null,
+  ].filter((f): f is { label: string; value: string } => f !== null);
+  return (
+    <div className="flex flex-col gap-4">
+      <FactGrid facts={facts} />
+      {specs.startDates?.length ? <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Start dates: </span>{specs.startDates.join(", ")}</p> : null}
+      <ItineraryList days={specs.itinerary ?? []} />
+    </div>
+  );
+}
 
 // Reference detail layout (matches the oyotours national-tour-details pattern):
 // left column = gallery carousel → description → location map → tour calendar →
@@ -160,6 +424,13 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // A logged-in partner reviews this listing as a customer sees it, then attaches
+  // their operating price from the same page (instead of enquiring like a customer).
+  const role = useAuthStore((s) => s.user?.role);
+  const isPartner = role === "partner";
+  const [myOffer, setMyOffer] = useState<PartnerOffer | null>(null);
+  const [offerOpen, setOfferOpen] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     getPackage(slug)
@@ -174,6 +445,21 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [slug]);
+
+  // If a partner is viewing, find whether they've already priced this listing.
+  useEffect(() => {
+    if (!isPartner || !data) return;
+    let cancelled = false;
+    partnerPackagesClient.listOffers()
+      .then((offers) => {
+        if (cancelled) return;
+        const pkgId = data.item.id;
+        const mine = offers.find((o) => (typeof o.package === "object" && o.package ? o.package.id : o.package) === pkgId);
+        setMyOffer(mine ?? null);
+      })
+      .catch(() => { /* non-fatal: the partner can still open the form */ });
+    return () => { cancelled = true; };
+  }, [isPartner, data]);
 
   const submit = async () => {
     if (!data) return;
@@ -238,6 +524,32 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                     </ul>
                   )}
                 </Section>
+
+                {/* Per-vertical details, read from Package.specs (mirrors the partner
+                    form for this kind — see packageKindSpecs.ts / the bespoke
+                    Details components above for how each kind is rendered). */}
+                {pkg.kind === "sightseeing" && (
+                  <Section title="Activity Details">
+                    <SightseeingDetails specs={pkg.specs as PackageSightseeingSpecs} />
+                  </Section>
+                )}
+                {pkg.kind === "tour" && (
+                  <Section title="Tour Details"><TourDetails specs={pkg.specs as PackageTourSpecs} /></Section>
+                )}
+                {pkg.kind === "tour_package" && (
+                  <Section title="Package Details"><TourPackageDetails specs={pkg.specs as PackageTourPackageSpecs} /></Section>
+                )}
+                {pkg.kind === "cruise" && (
+                  <Section title="Cruise Details"><CruiseDetails specs={pkg.specs as PackageCruiseSpecs} /></Section>
+                )}
+                {pkg.kind === "taxi_package" && (
+                  <Section title="Package Details"><TaxiPackageDetails specs={pkg.specs as PackageTaxiPackageSpecs} /></Section>
+                )}
+                {PACKAGE_KIND_SPECS[pkg.kind] && (
+                  <Section title="Details">
+                    <KindDetails kind={pkg.kind} specs={pkg.specs ?? {}} />
+                  </Section>
+                )}
 
                 {/* Bundle components */}
                 {pkg.kind === "bundle" && pkg.components.length > 0 && (
@@ -396,7 +708,31 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                   </div>
                 )}
 
-                {/* Booking Now (enquiry) */}
+                {/* Partner pricing panel — replaces the customer enquiry box when a
+                    partner is signed in, so they price the listing they just reviewed. */}
+                {isPartner ? (
+                  <div className="rounded-2xl border border-accent-300 bg-accent-50 p-5 shadow-(--shadow-sm)">
+                    <h2 className="text-[17px] font-extrabold text-ink">Operate this listing</h2>
+                    <p className="mt-1 text-[13px] text-ink-soft">
+                      You&apos;re viewing this listing as your customers will. Attach your operating price to appear as an operator here.
+                    </p>
+                    {myOffer ? (
+                      <div className="mt-3 rounded-xl border border-accent-200 bg-white p-3">
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Your current price</p>
+                        <p className="text-[20px] font-extrabold text-success-700">{formatINR(myOffer.price)}{myOffer.perPerson ? " /person" : " total"}</p>
+                        {myOffer.pricingNote && <p className="text-[12px] text-ink-muted">{myOffer.pricingNote}</p>}
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setOfferOpen(true)}
+                      className="mt-3 w-full rounded-lg bg-accent-500 py-3 text-[14px] font-extrabold text-white transition-colors hover:bg-accent-600"
+                    >
+                      {myOffer ? "Update your price" : "Set your price"}
+                    </button>
+                  </div>
+                ) : (
+                /* Booking Now (enquiry) */
                 <div id="booking-now" className="rounded-2xl border border-border-soft bg-white p-5 shadow-(--shadow-sm)">
                   <h2 className="mb-3 text-[17px] font-extrabold text-ink">Booking Now</h2>
                   <div className="flex flex-col gap-3">
@@ -446,12 +782,25 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                     <p className="text-center text-[11px] text-ink-muted">Enquiry only — the operator confirms price &amp; availability.</p>
                   </div>
                 </div>
+                )}
               </aside>
             </div>
           );
         })()}
       </main>
       <Footer />
+
+      {/* Partner offer form — set/update the price for the listing being reviewed. */}
+      {isPartner && data && (
+        <OfferModal
+          open={offerOpen}
+          onClose={() => setOfferOpen(false)}
+          packageId={data.item.id}
+          packageLabel={data.item.title}
+          existing={myOffer}
+          onSaved={(saved) => { setMyOffer(saved); void getPackage(slug).then(setData).catch(() => {}); }}
+        />
+      )}
     </div>
   );
 }

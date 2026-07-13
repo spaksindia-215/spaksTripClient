@@ -335,9 +335,14 @@ export type AdminPackage = {
   title: string;
   slug: string;
   thumbnail?: string;
+  images?: { url: string; caption?: string; isPrimary?: boolean }[];
+  description?: string;
+  referencePrice?: number;
+  currency?: string;
   route: { destinations: string[]; durationDays: number; durationNights: number };
   components?: { category: string; title: string; quantity: number; included: boolean }[];
   author?: { id: string; name?: string; companyName?: string } | string;
+  createdAt?: string;
 };
 
 // §5.3 — result of comparing a partner submission against the closest platform

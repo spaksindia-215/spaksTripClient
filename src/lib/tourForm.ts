@@ -19,7 +19,14 @@ export const TOUR_CATEGORIES = [
 export const TOUR_OPERATING_DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 export const TOUR_CURRENCIES = ["INR", "USD", "EUR", "AED", "GBP"] as const;
 
-export type TourItineraryRow = { time: string; title: string; description: string; location: string };
+export type TourItineraryRow = {
+  time: string;
+  title: string;
+  description: string;
+  location: string;
+  locationLat: string;
+  locationLng: string;
+};
 export type TourPricingRow = { label: string; price: string; minAge: string; maxAge: string };
 export type TourPickupRow = { name: string; time: string };
 
@@ -84,7 +91,7 @@ export function emptyTourForm(): TourFormState {
     durationHours: "",
     durationDays: "",
     durationNights: "",
-    itinerary: [{ time: "", title: "", description: "", location: "" }],
+    itinerary: [{ time: "", title: "", description: "", location: "", locationLat: "", locationLng: "" }],
     pricing: [emptyPricingRow()],
     pickupPoints: [],
     minGroupSize: "1",
@@ -134,8 +141,10 @@ export function tourFormFromApi(tour: TourListingApi): TourFormState {
             title: s.title ?? "",
             description: s.description ?? "",
             location: s.location ?? "",
+            locationLat: s.coordinates ? String(s.coordinates.coordinates[1]) : "",
+            locationLng: s.coordinates ? String(s.coordinates.coordinates[0]) : "",
           }))
-        : [{ time: "", title: "", description: "", location: "" }],
+        : [{ time: "", title: "", description: "", location: "", locationLat: "", locationLng: "" }],
     pricing:
       tour.pricing.length > 0
         ? tour.pricing.map((t) => ({
@@ -198,12 +207,14 @@ export function buildTourFormData(state: TourFormState, files: TourFiles): FormD
     durationDays: numOrUndef(state.durationDays),
     durationNights: numOrUndef(state.durationNights),
     itinerary: state.itinerary
-      .filter((r) => r.time.trim() || r.title.trim() || r.description.trim() || r.location.trim())
+      .filter((r) => r.time.trim() || r.title.trim() || r.description.trim() || r.location.trim() || r.locationLat.trim())
       .map((r) => ({
         time: r.time.trim() || undefined,
         title: r.title.trim() || undefined,
         description: r.description.trim() || undefined,
         location: r.location.trim() || undefined,
+        locationLat: numOrUndef(r.locationLat),
+        locationLng: numOrUndef(r.locationLng),
       })),
     pricing: state.pricing
       .filter((t) => t.label.trim() && t.price.trim())

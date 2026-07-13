@@ -21,7 +21,8 @@ export default function NationalTourPackagesPage() {
       <main>
         <PackagePageHero title="National Tour Packages" image="/forest.jpg" />
         <section className="mx-auto max-w-7xl px-6 py-16">
-          <MarketplaceGrid kind="holiday" scope="domestic" emptyHint="National holiday packages will appear here once operators list them." />
+          {/* Holiday surfaces run on tour & taxi packages (plus dedicated holiday listings). */}
+          <MarketplaceGrid kinds={["holiday", "tour_package", "taxi_package"]} scope="domestic" emptyHint="National holiday packages will appear here once operators list them." />
         </section>
       </main>
       <Footer />

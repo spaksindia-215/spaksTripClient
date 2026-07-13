@@ -9,6 +9,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import LocationPickerField from "./LocationPickerField";
 import { useSubmitForReview, SUBMITTABLE_STATUSES } from "./useSubmitForReview";
 import { partnerClient, type TourListingApi } from "@/lib/partnerClient";
 import {
@@ -116,6 +117,12 @@ export default function TourManager() {
       itinerary: c.itinerary.map((r, i) => (i === index ? { ...r, [key]: value } : r)),
     }));
   }
+  function patchItinerary(index: number, patch: Partial<TourItineraryRow>) {
+    setForm((c) => ({
+      ...c,
+      itinerary: c.itinerary.map((r, i) => (i === index ? { ...r, ...patch } : r)),
+    }));
+  }
   function setPricing(index: number, key: keyof TourPricingRow, value: string) {
     setForm((c) => ({
       ...c,
@@ -209,8 +216,10 @@ export default function TourManager() {
         <Section title="Location & Duration">
           <Input id="t-basedin" label="Based in" value={form.basedIn} onChange={(e) => setField("basedIn", e.target.value)} placeholder="Jaipur" />
           <Input id="t-covers" label="Covers cities (comma separated)" value={form.coversCities} onChange={(e) => setField("coversCities", e.target.value)} placeholder="Jaipur, Amer" />
-          <Input id="t-lat" label="Latitude" type="number" value={form.latitude} onChange={(e) => setField("latitude", e.target.value)} />
-          <Input id="t-lng" label="Longitude" type="number" value={form.longitude} onChange={(e) => setField("longitude", e.target.value)} />
+          <LocationPickerField
+            lat={form.latitude} lng={form.longitude}
+            onChange={(v) => setForm((c) => ({ ...c, latitude: v.lat, longitude: v.lng }))}
+          />
           <Input id="t-dh" label="Duration (hours)" type="number" min="0" value={form.durationHours} onChange={(e) => setField("durationHours", e.target.value)} />
           <Input id="t-dd" label="Duration (days)" type="number" min="0" value={form.durationDays} onChange={(e) => setField("durationDays", e.target.value)} />
           <Input id="t-dn" label="Duration (nights)" type="number" min="0" value={form.durationNights} onChange={(e) => setField("durationNights", e.target.value)} />
@@ -233,10 +242,14 @@ export default function TourManager() {
                   <Input id={`t-it-title-${index}`} label="Title" value={row.title} onChange={(e) => setItinerary(index, "title", e.target.value)} />
                   <Input id={`t-it-loc-${index}`} label="Location" value={row.location} onChange={(e) => setItinerary(index, "location", e.target.value)} />
                   <Input id={`t-it-desc-${index}`} label="Description" value={row.description} onChange={(e) => setItinerary(index, "description", e.target.value)} />
+                  <LocationPickerField
+                    lat={row.locationLat} lng={row.locationLng} address={row.location}
+                    onChange={(v) => patchItinerary(index, { locationLat: v.lat, locationLng: v.lng, location: v.address ?? row.location })}
+                  />
                 </div>
               </div>
             ))}
-            <Button type="button" variant="outline" onClick={() => setForm((c) => ({ ...c, itinerary: [...c.itinerary, { time: "", title: "", description: "", location: "" }] }))}>
+            <Button type="button" variant="outline" onClick={() => setForm((c) => ({ ...c, itinerary: [...c.itinerary, { time: "", title: "", description: "", location: "", locationLat: "", locationLng: "" }] }))}>
               Add stop
             </Button>
           </div>
