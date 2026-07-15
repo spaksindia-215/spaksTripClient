@@ -9,6 +9,7 @@ import Drawer from "@/components/ui/Drawer";
 import EmptyState from "@/components/ui/EmptyState";
 import Input from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
+import TaxiTimeSlotInput from "@/components/shared/TaxiTimeSlotInput";
 import {
   buildTaxiUpdatePatch,
   createTaxiListingEditorDraft,
@@ -19,12 +20,8 @@ import { partnerClient } from "@/lib/partnerClient";
 import { cn } from "@/lib/cn";
 import {
   TAXI_AMENITIES,
-  TAXI_AVAILABLE_DAYS,
-  TAXI_TIME_SLOTS,
-  type TaxiAvailableDay,
   type TaxiListingEditorDraft,
   type TaxiListingView,
-  type TaxiTimeSlot,
 } from "@/types/taxiListing";
 
 type EditorErrors = Partial<Record<keyof TaxiListingEditorDraft, string>>;
@@ -97,24 +94,6 @@ export default function MyTaxiDashboard() {
         tone: "danger",
       });
     }
-  }
-
-  function toggleDay(day: TaxiAvailableDay) {
-    if (!editDraft) return;
-    const next = editDraft.availableDays.includes(day)
-      ? editDraft.availableDays.filter((item) => item !== day)
-      : [...editDraft.availableDays, day];
-
-    setDraft("availableDays", next);
-  }
-
-  function toggleTimeSlot(slot: TaxiTimeSlot) {
-    if (!editDraft) return;
-    const next = editDraft.availableTimeSlots.includes(slot)
-      ? editDraft.availableTimeSlots.filter((item) => item !== slot)
-      : [...editDraft.availableTimeSlots, slot];
-
-    setDraft("availableTimeSlots", next);
   }
 
   function toggleAmenity(amenity: string) {
@@ -349,33 +328,11 @@ export default function MyTaxiDashboard() {
               placeholder="Describe the ride experience."
             />
 
-            <EditorSelection title="Available Days" error={errors.availableDays}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {TAXI_AVAILABLE_DAYS.map((day) => (
-                  <Checkbox
-                    key={day}
-                    id={`edit-day-${day}`}
-                    checked={editDraft.availableDays.includes(day)}
-                    onChange={() => toggleDay(day)}
-                    label={day}
-                  />
-                ))}
-              </div>
-            </EditorSelection>
-
-            <EditorSelection title="Available Time Slots" error={errors.availableTimeSlots}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {TAXI_TIME_SLOTS.map((slot) => (
-                  <Checkbox
-                    key={slot}
-                    id={`edit-slot-${slot}`}
-                    checked={editDraft.availableTimeSlots.includes(slot)}
-                    onChange={() => toggleTimeSlot(slot)}
-                    label={slot}
-                  />
-                ))}
-              </div>
-            </EditorSelection>
+            <TaxiTimeSlotInput
+              slots={editDraft.availableTimeSlots}
+              onChange={(slots) => setDraft("availableTimeSlots", slots)}
+              error={errors.availableTimeSlots}
+            />
 
             <EditorSelection title="Amenities" error={errors.amenities}>
               <div className="grid gap-3 sm:grid-cols-2">

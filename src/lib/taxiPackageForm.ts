@@ -12,6 +12,9 @@ export type TaxiPackageItineraryRow = {
   activities: string;
   distance: string;
   overnight: string;
+  locationLat: string;
+  locationLng: string;
+  locationAddress: string;
 };
 
 export type TaxiPackageFormState = {
@@ -20,8 +23,14 @@ export type TaxiPackageFormState = {
   description: string;
   highlights: string;
   tags: string;
+  state: string;
   // route
   origin: string;
+  // Pin-dropped start point of the route — lets the customer-facing route map
+  // begin at the origin instead of the first itinerary day.
+  originLat: string;
+  originLng: string;
+  originAddress: string;
   destinations: string;
   totalKm: string;
   durationDays: string;
@@ -50,7 +59,10 @@ export type TaxiPackageFormState = {
 export type TaxiPackageFiles = { thumbnail: File | null; images: File[] };
 
 export function emptyItineraryRow(day: number): TaxiPackageItineraryRow {
-  return { day: String(day), title: "", description: "", activities: "", distance: "", overnight: "" };
+  return {
+    day: String(day), title: "", description: "", activities: "", distance: "", overnight: "",
+    locationLat: "", locationLng: "", locationAddress: "",
+  };
 }
 
 export function emptyTaxiPackageForm(): TaxiPackageFormState {
@@ -60,7 +72,11 @@ export function emptyTaxiPackageForm(): TaxiPackageFormState {
     description: "",
     highlights: "",
     tags: "",
+    state: "",
     origin: "",
+    originLat: "",
+    originLng: "",
+    originAddress: "",
     destinations: "",
     totalKm: "",
     durationDays: "1",
@@ -98,7 +114,11 @@ export function taxiPackageFormFromApi(pkg: TaxiPackageApi): TaxiPackageFormStat
     description: pkg.description ?? "",
     highlights: toCsv(pkg.highlights),
     tags: toCsv(pkg.tags),
+    state: pkg.state ?? "",
     origin: pkg.route.origin,
+    originLat: pkg.route.originLocation ? String(pkg.route.originLocation.lat) : "",
+    originLng: pkg.route.originLocation ? String(pkg.route.originLocation.lng) : "",
+    originAddress: pkg.route.originLocation?.address ?? "",
     destinations: toCsv(pkg.route.destinations),
     totalKm: pkg.route.totalKm !== undefined ? String(pkg.route.totalKm) : "",
     durationDays: String(pkg.route.durationDays),
@@ -113,6 +133,9 @@ export function taxiPackageFormFromApi(pkg: TaxiPackageApi): TaxiPackageFormStat
             activities: toCsv(d.activities),
             distance: d.distance !== undefined ? String(d.distance) : "",
             overnight: d.overnight ?? "",
+            locationLat: d.location ? String(d.location.lat) : "",
+            locationLng: d.location ? String(d.location.lng) : "",
+            locationAddress: d.location?.address ?? "",
           }))
         : [emptyItineraryRow(1)],
     basePrice: String(pkg.pricing.basePrice),
@@ -161,8 +184,13 @@ export function buildTaxiPackageFormData(
     description: state.description.trim() || undefined,
     highlights: fromCsv(state.highlights),
     tags: fromCsv(state.tags),
+    state: state.state || undefined,
     route: {
       origin: state.origin.trim(),
+      originLocation:
+        numOrUndef(state.originLat) !== undefined && numOrUndef(state.originLng) !== undefined
+          ? { lat: numOrUndef(state.originLat), lng: numOrUndef(state.originLng), address: state.originAddress.trim() || undefined }
+          : undefined,
       destinations: fromCsv(state.destinations),
       totalKm: numOrUndef(state.totalKm),
       durationDays: Number(state.durationDays),
@@ -170,7 +198,7 @@ export function buildTaxiPackageFormData(
     },
     vehicle: state.vehicle || undefined,
     itinerary: state.itinerary
-      .filter((r) => r.title.trim() || r.description.trim() || r.overnight.trim() || r.activities.trim())
+      .filter((r) => r.title.trim() || r.description.trim() || r.overnight.trim() || r.activities.trim() || r.locationLat.trim())
       .map((r, i) => ({
         day: numOrUndef(r.day) ?? i + 1,
         title: r.title.trim() || undefined,
@@ -178,6 +206,10 @@ export function buildTaxiPackageFormData(
         activities: fromCsv(r.activities),
         distance: numOrUndef(r.distance),
         overnight: r.overnight.trim() || undefined,
+        location:
+          numOrUndef(r.locationLat) !== undefined && numOrUndef(r.locationLng) !== undefined
+            ? { lat: numOrUndef(r.locationLat), lng: numOrUndef(r.locationLng), address: r.locationAddress.trim() || undefined }
+            : undefined,
       })),
     pricing: {
       basePrice: Number(state.basePrice),

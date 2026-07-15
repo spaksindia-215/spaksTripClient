@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import CruiseHero from "@/components/cruise/CruiseHero";
-import PopularDestinations from "@/components/cruise/PopularDestinations";
+import PackagePageHero from "@/components/holiday-packages/PackagePageHero";
+import MarketplaceGrid from "@/components/holiday-packages/MarketplaceGrid";
 import BackToTop from "@/components/landing/BackToTop";
 import Footer from "@/components/landing/Footer";
 import Header from "@/components/landing/Header";
@@ -15,12 +15,14 @@ export default function CruisePage() {
       <ServiceSchema
         serviceType="Cruise Booking"
         url="https://www.spakstrip.com/cruise"
-        description="Explore luxury cruise vacations and island getaways."
+        description="Explore cruise vacations and island getaways."
       />
       <Header />
       <main>
-        <CruiseHero />
-        <PopularDestinations />
+        <PackagePageHero title="Cruises" image="/forest.jpg" />
+        <section className="mx-auto max-w-7xl px-6 py-16">
+          <MarketplaceGrid kind="cruise" emptyHint="Cruise packages will appear here once operators list them." />
+        </section>
       </main>
       <Footer />
       <BackToTop />

@@ -69,6 +69,9 @@ export type PackageSummary = {
   description?: string;
   highlights: string[];
   tags: string[];
+  // Indian state this listing operates in (domestic-only) — drives state-wise
+  // browse categories on the national holiday/tour/taxi-package pages.
+  state?: string;
   route: { origin?: string; destinations: string[]; durationDays: number; durationNights: number };
   referencePrice?: number;
   currency: string;
@@ -148,6 +151,26 @@ export type PackageTourPackageSpecs = {
   videoUrl?: string;
 };
 
+// Shape of `specs` when kind === "holiday" and the package was manually authored
+// via the HolidayPackageFields form (mirrors PackageTourPackageSpecs — the
+// roomTiers array is the only structural difference, priced the way OTAs like
+// MakeMyTrip/Yatra price a holiday package). A "holiday" package created via
+// the hotel+taxi-package tie-up instead has no roomTiers — it renders through
+// `components` (see the bundle section on the detail page).
+export type PackageHolidaySpecs = {
+  packageType?: string;
+  // Pin-dropped start/end of the route — the detail page's route map runs
+  // origin → itinerary stops → destination.
+  originLocation?: { lat: number; lng: number; address?: string };
+  destinationLocation?: { lat: number; lng: number; address?: string };
+  itinerary?: { day: number; title?: string; description?: string; meals?: { breakfast: boolean; lunch: boolean; dinner: boolean }; accommodation?: string; activities?: string[]; location?: { lat: number; lng: number; address?: string } }[];
+  roomTiers?: { roomType: string; mealPlan: string; price: number; maxOccupancy: number; childPrice?: number; extraBedPrice?: number }[];
+  singleSupplement?: number;
+  discounts?: { label: string; percent: number; validUntil?: string }[];
+  departures?: { date: string; seatsTotal?: number; status?: string }[];
+  videoUrl?: string;
+};
+
 export type PackageCruiseSpecs = {
   cruiseType?: string;
   vessel?: { name?: string; operator?: string; totalDecks?: number; builtYear?: number };
@@ -163,7 +186,9 @@ export type PackageCruiseSpecs = {
 
 export type PackageTaxiPackageSpecs = {
   totalKm?: number;
-  itinerary?: { day: number; title?: string; description?: string; activities?: string[]; distance?: number; overnight?: string }[];
+  // Pin-dropped start of the route — the detail page's route map begins here.
+  originLocation?: { lat: number; lng: number; address?: string };
+  itinerary?: { day: number; title?: string; description?: string; activities?: string[]; distance?: number; overnight?: string; location?: { lat: number; lng: number; address?: string } }[];
   pricing?: { basePrice?: number; maxPersons?: number; extraPersonCharge?: number; tollsIncluded?: boolean; driverAllowance?: boolean; fuelIncluded?: boolean };
   startDates?: string[];
   blackoutDates?: string[];
@@ -222,6 +247,7 @@ export function listPackages(filters: {
   scope?: PackageScope;
   q?: string;
   destination?: string;
+  state?: string;
   page?: number;
   limit?: number;
 } = {}): Promise<{ items: PackageSummary[]; pagination: Pagination }> {

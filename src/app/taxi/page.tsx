@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import CabSearchForm from "@/components/transport/CabSearchForm";
+import PackagePageHero from "@/components/holiday-packages/PackagePageHero";
+import MarketplaceGrid from "@/components/holiday-packages/MarketplaceGrid";
 import TaxiPartnerCTA from "@/components/transport/TaxiPartnerCTA";
 import WhyChooseUsOYO from "@/components/shared/WhyChooseUsOYO";
 import BackToTop from "@/components/landing/BackToTop";
@@ -15,12 +16,15 @@ export default function CabsPage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Taxi Booking"
-        url="https://www.spakstrip.com/cabs"
+        url="https://www.spakstrip.com/taxi"
         description="Book cabs for local rides and point-to-point transfers."
       />
       <Header />
       <main>
-        <CabSearchForm />
+        <PackagePageHero title="Taxi Booking" image="/forest.jpg" />
+        <section className="mx-auto max-w-7xl px-6 py-16">
+          <MarketplaceGrid kind="taxi" emptyHint="Taxi listings will appear here once operators list them." />
+        </section>
         <TaxiPartnerCTA />
         <WhyChooseUsOYO />
       </main>
@@ -29,7 +33,3 @@ export default function CabsPage() {
     </div>
   );
 }
-// Add IRCTC	Make your Flight booking flow handle edge cases: infant booking, wheelchair SSR, multi-pax with different surnames
-// Add Transfer	Make your Hotel detail page show real reviews, photo gallery zoom, map integration
-// Add Self-Drive	Make your Payment page handle failure states, retry logic, timeout handling
-// Add Sightseeing	Make your My Trips handle cancellations, modifications, download e-ticke

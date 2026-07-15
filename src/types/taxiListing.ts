@@ -11,24 +11,6 @@ export const TAXI_FUEL_TYPES = ["Petrol", "Diesel", "CNG", "Electric", "Hybrid"]
 
 export const TAXI_TRANSMISSION_TYPES = ["Manual", "Automatic"] as const;
 
-export const TAXI_AVAILABLE_DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-] as const;
-
-export const TAXI_TIME_SLOTS = [
-  "06:00 - 10:00",
-  "10:00 - 14:00",
-  "14:00 - 18:00",
-  "18:00 - 22:00",
-  "22:00 - 06:00",
-] as const;
-
 export const TAXI_AMENITIES = [
   "Wi-Fi",
   "Phone Charger",
@@ -43,8 +25,6 @@ export const TAXI_AMENITIES = [
 export type TaxiVehicleType = (typeof TAXI_VEHICLE_TYPES)[number];
 export type TaxiFuelType = (typeof TAXI_FUEL_TYPES)[number];
 export type TaxiTransmissionType = (typeof TAXI_TRANSMISSION_TYPES)[number];
-export type TaxiAvailableDay = (typeof TAXI_AVAILABLE_DAYS)[number];
-export type TaxiTimeSlot = (typeof TAXI_TIME_SLOTS)[number];
 export type TaxiAmenity = (typeof TAXI_AMENITIES)[number];
 
 export type TaxiListingFile = {
@@ -95,8 +75,7 @@ export type TaxiListing = {
   pollutionCertificate: TaxiListingFile;
   drivingLicense: TaxiListingFile;
   vehiclePhotos: TaxiListingFile[];
-  availableDays: TaxiAvailableDay[];
-  availableTimeSlots: TaxiTimeSlot[];
+  availableTimeSlots: string[];
   description: string;
   amenities: string[];
   acceptTerms: true;
@@ -131,8 +110,7 @@ export type TaxiListingDraft = {
   pollutionCertificate: TaxiListingFile | null;
   drivingLicense: TaxiListingFile | null;
   vehiclePhotos: TaxiListingFile[];
-  availableDays: TaxiAvailableDay[];
-  availableTimeSlots: TaxiTimeSlot[];
+  availableTimeSlots: string[];
   description: string;
   amenities: string[];
   acceptTerms: boolean;
@@ -156,7 +134,6 @@ export type TaxiListingView = {
   availableRoutes: string[];
   minimumFare: number;
   pricePerKm: number;
-  availableDays: string[];
   availableTimeSlots: string[];
   description: string;
   amenities: string[];
@@ -185,8 +162,7 @@ export type TaxiListingEditorDraft = {
   availableRoutes: string;
   minimumFare: string;
   pricePerKm: string;
-  availableDays: TaxiAvailableDay[];
-  availableTimeSlots: TaxiTimeSlot[];
+  availableTimeSlots: string[];
   description: string;
   amenities: string[];
 };

@@ -1,13 +1,10 @@
-import { TAXI_AVAILABLE_DAYS, TAXI_TIME_SLOTS } from "@/types/taxiListing";
 import type {
-  TaxiAvailableDay,
   TaxiListingDraft,
   TaxiListingEditorDraft,
   TaxiListingErrors,
   TaxiListingFile,
   TaxiListingUploadFiles,
   TaxiListingView,
-  TaxiTimeSlot,
 } from "@/types/taxiListing";
 import type { TaxiListingApi, TaxiListingUpdate } from "@/lib/partnerClient";
 
@@ -47,7 +44,6 @@ export function createEmptyTaxiListingDraft(): TaxiListingDraft {
     pollutionCertificate: null,
     drivingLicense: null,
     vehiclePhotos: [],
-    availableDays: [],
     availableTimeSlots: [],
     description: "",
     amenities: [],
@@ -62,14 +58,7 @@ export function createTaxiListingEditorDraft(listing: TaxiListingView): TaxiList
     availableRoutes: listing.availableRoutes.join(", "),
     minimumFare: String(listing.minimumFare),
     pricePerKm: String(listing.pricePerKm),
-    // The editor's checkboxes use the known literal sets; values outside them
-    // simply won't match a checkbox.
-    availableDays: listing.availableDays.filter((d): d is TaxiAvailableDay =>
-      (TAXI_AVAILABLE_DAYS as readonly string[]).includes(d),
-    ),
-    availableTimeSlots: listing.availableTimeSlots.filter((s): s is TaxiTimeSlot =>
-      (TAXI_TIME_SLOTS as readonly string[]).includes(s),
-    ),
+    availableTimeSlots: listing.availableTimeSlots,
     description: listing.description,
     amenities: listing.amenities,
   };
@@ -148,9 +137,6 @@ export function validateTaxiListingDraft(draft: TaxiListingDraft): TaxiListingEr
   if (draft.vehiclePhotos.length === 0) {
     errors.vehiclePhotos = "Upload at least one vehicle photo.";
   }
-  if (draft.availableDays.length === 0) {
-    errors.availableDays = "Choose at least one available day.";
-  }
   if (draft.availableTimeSlots.length === 0) {
     errors.availableTimeSlots = "Choose at least one time slot.";
   }
@@ -190,7 +176,6 @@ export function buildTaxiListingFormData(
     pricePerKm: Number(draft.pricePerKm),
     driverIncluded: draft.driverIncluded,
     selfDriveAvailable: draft.selfDriveAvailable,
-    availableDays: draft.availableDays,
     availableTimeSlots: draft.availableTimeSlots,
     description: draft.description.trim(),
     amenities: draft.amenities,
@@ -226,7 +211,6 @@ export function taxiViewFromApi(listing: TaxiListingApi): TaxiListingView {
     availableRoutes: listing.routes,
     minimumFare: service?.pricing.baseFare ?? 0,
     pricePerKm: service?.pricing.pricePerKm ?? 0,
-    availableDays: listing.operatingDays,
     availableTimeSlots: listing.operationalHours.slots.map((s) => `${s.from} - ${s.to}`),
     description: listing.description ?? "",
     amenities: listing.vehicle.amenities,
@@ -244,7 +228,6 @@ export function buildTaxiUpdatePatch(draft: TaxiListingEditorDraft): TaxiListing
     availableRoutes: toList(draft.availableRoutes),
     minimumFare: Number(draft.minimumFare),
     pricePerKm: Number(draft.pricePerKm),
-    availableDays: draft.availableDays,
     availableTimeSlots: draft.availableTimeSlots,
     description: draft.description.trim(),
     amenities: draft.amenities,
@@ -266,9 +249,6 @@ export function validateTaxiListingEditorDraft(draft: TaxiListingEditorDraft) {
   }
   if (!Number.isFinite(Number(draft.pricePerKm)) || Number(draft.pricePerKm) <= 0) {
     errors.pricePerKm = "Enter a valid per-km price.";
-  }
-  if (draft.availableDays.length === 0) {
-    errors.availableDays = "Choose at least one available day.";
   }
   if (draft.availableTimeSlots.length === 0) {
     errors.availableTimeSlots = "Choose at least one time slot.";

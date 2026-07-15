@@ -9,6 +9,9 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import LocationPickerField from "./LocationPickerField";
+import StateSelect from "@/components/ui/StateSelect";
+import ItineraryDescriptionField from "./ItineraryDescriptionField";
 import { useSubmitForReview, SUBMITTABLE_STATUSES } from "./useSubmitForReview";
 import { partnerClient, type TaxiListingApi, type TaxiPackageApi } from "@/lib/partnerClient";
 import {
@@ -94,6 +97,13 @@ export default function TaxiPackageManager() {
       );
       return { ...current, itinerary };
     });
+  }
+
+  function patchItineraryRow(index: number, patch: Partial<TaxiPackageItineraryRow>) {
+    setForm((current) => ({
+      ...current,
+      itinerary: current.itinerary.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    }));
   }
 
   function addItineraryRow() {
@@ -191,6 +201,14 @@ export default function TaxiPackageManager() {
         <Section title="Route">
           <Input id="tp-origin" label="Origin" value={form.origin} onChange={(e) => setField("origin", e.target.value)} placeholder="Delhi" />
           <Input id="tp-destinations" label="Destinations (comma separated)" value={form.destinations} onChange={(e) => setField("destinations", e.target.value)} placeholder="Shimla, Manali" />
+          <div className="sm:col-span-2">
+            <p className="mb-1 text-[13px] font-medium text-ink-soft">Origin location (start of the route map)</p>
+            <LocationPickerField
+              lat={form.originLat} lng={form.originLng} address={form.originAddress}
+              onChange={(v) => setForm((c) => ({ ...c, originLat: v.lat, originLng: v.lng, originAddress: v.address ?? c.originAddress }))}
+            />
+          </div>
+          <StateSelect value={form.state} onChange={(v) => setField("state", v)} />
           <Input id="tp-totalkm" label="Total KM" type="number" min="0" value={form.totalKm} onChange={(e) => setField("totalKm", e.target.value)} />
           <Input id="tp-days" label="Duration (days)" type="number" min="1" value={form.durationDays} onChange={(e) => setField("durationDays", e.target.value)} />
           <Input id="tp-nights" label="Duration (nights)" type="number" min="0" value={form.durationNights} onChange={(e) => setField("durationNights", e.target.value)} />
@@ -231,7 +249,11 @@ export default function TaxiPackageManager() {
                   <Input id={`tp-it-overnight-${index}`} label="Overnight at" value={row.overnight} onChange={(e) => setItineraryRow(index, "overnight", e.target.value)} placeholder="Shimla" />
                   <Input id={`tp-it-distance-${index}`} label="Distance (km)" type="number" min="0" value={row.distance} onChange={(e) => setItineraryRow(index, "distance", e.target.value)} />
                   <Input id={`tp-it-activities-${index}`} label="Activities (comma separated)" value={row.activities} onChange={(e) => setItineraryRow(index, "activities", e.target.value)} placeholder="Mall Road, Ridge" />
-                  <Input id={`tp-it-desc-${index}`} label="Description" value={row.description} onChange={(e) => setItineraryRow(index, "description", e.target.value)} />
+                  <ItineraryDescriptionField id={`tp-it-desc-${index}`} value={row.description} onChange={(v) => setItineraryRow(index, "description", v)} />
+                  <LocationPickerField
+                    lat={row.locationLat} lng={row.locationLng} address={row.locationAddress}
+                    onChange={(v) => patchItineraryRow(index, { locationLat: v.lat, locationLng: v.lng, locationAddress: v.address ?? row.locationAddress })}
+                  />
                 </div>
               </div>
             ))}
@@ -449,10 +471,14 @@ function DateMultiPicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[13px] font-medium text-ink-soft">{label}</span>
+      <span className="text-[13px] font-medium text-ink-soft">
+        {label} <span className="font-normal text-ink-muted">(mm/dd/yyyy)</span>
+      </span>
       <input
         type="date"
         min={today}
+        placeholder="mm/dd/yyyy"
+        aria-label={`${label} — pick a date (mm/dd/yyyy)`}
         className="h-10 w-full rounded-md border border-border bg-white px-3 text-[14px] text-ink outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
         onChange={(e) => { addDate(e.target.value); e.target.value = ""; }}
       />

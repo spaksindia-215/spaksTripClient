@@ -10,6 +10,8 @@ import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import LocationPickerField from "./LocationPickerField";
+import StateSelect from "@/components/ui/StateSelect";
+import ItineraryDescriptionField from "./ItineraryDescriptionField";
 import { useSubmitForReview, SUBMITTABLE_STATUSES } from "./useSubmitForReview";
 import { partnerClient, type TourListingApi } from "@/lib/partnerClient";
 import {
@@ -216,6 +218,7 @@ export default function TourManager() {
         <Section title="Location & Duration">
           <Input id="t-basedin" label="Based in" value={form.basedIn} onChange={(e) => setField("basedIn", e.target.value)} placeholder="Jaipur" />
           <Input id="t-covers" label="Covers cities (comma separated)" value={form.coversCities} onChange={(e) => setField("coversCities", e.target.value)} placeholder="Jaipur, Amer" />
+          <StateSelect value={form.state} onChange={(v) => setField("state", v)} />
           <LocationPickerField
             lat={form.latitude} lng={form.longitude}
             onChange={(v) => setForm((c) => ({ ...c, latitude: v.lat, longitude: v.lng }))}
@@ -241,7 +244,7 @@ export default function TourManager() {
                   <Input id={`t-it-time-${index}`} label="Time" value={row.time} onChange={(e) => setItinerary(index, "time", e.target.value)} placeholder="09:00 AM" />
                   <Input id={`t-it-title-${index}`} label="Title" value={row.title} onChange={(e) => setItinerary(index, "title", e.target.value)} />
                   <Input id={`t-it-loc-${index}`} label="Location" value={row.location} onChange={(e) => setItinerary(index, "location", e.target.value)} />
-                  <Input id={`t-it-desc-${index}`} label="Description" value={row.description} onChange={(e) => setItinerary(index, "description", e.target.value)} />
+                  <ItineraryDescriptionField id={`t-it-desc-${index}`} value={row.description} onChange={(v) => setItinerary(index, "description", v)} />
                   <LocationPickerField
                     lat={row.locationLat} lng={row.locationLng} address={row.location}
                     onChange={(v) => patchItinerary(index, { locationLat: v.lat, locationLng: v.lng, location: v.address ?? row.location })}

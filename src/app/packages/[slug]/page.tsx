@@ -16,6 +16,7 @@ import {
   type PackageSightseeingSpecs,
   type PackageTourSpecs,
   type PackageTourPackageSpecs,
+  type PackageHolidaySpecs,
   type PackageCruiseSpecs,
   type PackageTaxiPackageSpecs,
 } from "@/lib/packagesClient";
@@ -23,6 +24,7 @@ import { useAuthStore } from "@/state/authStore";
 import { partnerPackagesClient, type PartnerOffer } from "@/lib/partnerPackagesClient";
 import OfferModal from "@/components/partner/OfferModal";
 import { PACKAGE_KIND_SPECS, specDisplayValue } from "@/lib/packageKindSpecs";
+import ItineraryMap, { type ItineraryMapPoint } from "@/components/packages/ItineraryMap";
 
 // Generic per-kind details, read from Package.specs using the shared kind-spec
 // config (every vertical except sightseeing, which has its own richer block).
@@ -120,15 +122,36 @@ function FactGrid({ facts }: { facts: { label: string; value: string }[] }) {
   );
 }
 
-function ItineraryList({ days }: { days: { day?: number; title?: string; description?: string; time?: string; location?: string; activities?: string[]; accommodation?: string; distance?: number; overnight?: string; geo?: { lat: number; lng: number; address?: string } }[] }) {
-  if (!days || days.length === 0) return null;
+type ItineraryDay = {
+  day?: number;
+  title?: string;
+  description?: string;
+  time?: string;
+  location?: string;
+  activities?: string[];
+  accommodation?: string;
+  distance?: number;
+  overnight?: string;
+  geo?: { lat: number; lng: number; address?: string };
+};
+
+function ItineraryDayCard({ d, i }: { d: ItineraryDay; i: number }) {
+  const [open, setOpen] = useState(false);
+  const heading = `${d.day != null ? `Day ${d.day}` : d.time ?? `Stop ${i + 1}`}${d.title ? ` — ${d.title}` : ""}`;
+  // A short teaser so the collapsed card still reads as useful, not empty.
+  const teaser = d.description && d.description.length > 110 ? `${d.description.slice(0, 110)}…` : d.description;
+
   return (
-    <div className="flex flex-col gap-2">
-      {days.map((d, i) => (
-        <div key={i} className="rounded-lg border border-border-soft bg-white px-4 py-2.5">
-          <p className="text-[13px] font-bold text-ink">
-            {d.day != null ? `Day ${d.day}` : d.time ?? `Stop ${i + 1}`}{d.title ? ` — ${d.title}` : ""}
-          </p>
+    <div className="rounded-lg border border-border-soft bg-white px-4 py-2.5">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-start justify-between gap-3 text-left">
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold text-ink">{heading}</p>
+          {!open && teaser && <p className="mt-0.5 truncate text-[12px] text-ink-muted">{teaser}</p>}
+        </div>
+        <span className="mt-0.5 shrink-0 text-[12px] font-semibold text-brand-600">{open ? "Hide ▾" : "Details ▸"}</span>
+      </button>
+      {open && (
+        <div className="mt-2">
           {d.location && <p className="text-[12px] text-ink-muted">📍 {d.location}</p>}
           {d.description && <p className="mt-1 text-[12px] text-ink-soft">{d.description}</p>}
           {d.activities?.length ? <p className="mt-1 text-[12px] text-ink-muted">🎯 {d.activities.join(" · ")}</p> : null}
@@ -142,7 +165,40 @@ function ItineraryList({ days }: { days: { day?: number; title?: string; descrip
             </p>
           )}
         </div>
-      ))}
+      )}
+    </div>
+  );
+}
+
+function ItineraryList({
+  days,
+  start,
+  end,
+  route = false,
+}: {
+  days: ItineraryDay[];
+  // Optional route start/end (a package's pinned origin/destination) — rendered
+  // as "S"/"E" markers around the day pins.
+  start?: { lat: number; lng: number; label: string };
+  end?: { lat: number; lng: number; label: string };
+  // Draw the connecting line start → day 1 → day 2 … → end on the map.
+  route?: boolean;
+}) {
+  if (!days || days.length === 0) return null;
+  const dayPoints: ItineraryMapPoint[] = days
+    .filter((d): d is ItineraryDay & { geo: { lat: number; lng: number } } => d.geo != null)
+    .map((d, i) => ({ day: d.day, label: `${d.day != null ? `Day ${d.day}` : `Stop ${i + 1}`}${d.title ? ` — ${d.title}` : ""}`, lat: d.geo.lat, lng: d.geo.lng }));
+  const mapPoints: ItineraryMapPoint[] = [
+    ...(start ? [{ badge: "S", label: start.label, lat: start.lat, lng: start.lng }] : []),
+    ...dayPoints,
+    ...(end ? [{ badge: "E", label: end.label, lat: end.lat, lng: end.lng }] : []),
+  ];
+  return (
+    <div className="flex flex-col gap-3">
+      <ItineraryMap points={mapPoints} route={route} />
+      <div className="flex flex-col gap-2">
+        {days.map((d, i) => <ItineraryDayCard key={i} d={d} i={i} />)}
+      </div>
     </div>
   );
 }
@@ -226,6 +282,65 @@ function TourPackageDetails({ specs }: { specs: PackageTourPackageSpecs }) {
   );
 }
 
+// Holiday package details — mirrors holidayPackageForm.ts. Room tiers render as
+// a price table (Standard/Deluxe/Luxury × meal plan), the way MakeMyTrip/Yatra
+// price a holiday package. A tie-up-generated holiday (hotel + taxi package,
+// no roomTiers) instead renders through the "components" bundle section below.
+function HolidayPackageDetails({ specs }: { specs: PackageHolidaySpecs }) {
+  const facts: { label: string; value: string }[] = [
+    specs.packageType ? { label: "Package type", value: titleCase(specs.packageType) } : null,
+    specs.singleSupplement != null ? { label: "Single supplement", value: formatINR(specs.singleSupplement) } : null,
+  ].filter((f): f is { label: string; value: string } => f !== null);
+  return (
+    <div className="flex flex-col gap-4">
+      <FactGrid facts={facts} />
+      {specs.roomTiers?.length ? (
+        <div className="rounded-xl border border-border-soft bg-surface-muted/50 p-3">
+          <p className="mb-1.5 text-[13px] font-bold text-ink">Room tiers</p>
+          {specs.roomTiers.map((t, i) => (
+            <div key={i} className="flex items-center justify-between text-[12px] text-ink-soft">
+              <span>{titleCase(t.roomType)} · {titleCase(t.mealPlan)}{t.maxOccupancy ? ` (up to ${t.maxOccupancy})` : ""}</span>
+              <span className="font-bold text-ink">{formatINR(t.price)}/person</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {specs.discounts?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {specs.discounts.map((d, i) => (
+            <span key={i} className="rounded-full bg-success-50 px-2.5 py-1 text-[11px] font-bold text-success-700">{d.label} · {d.percent}% off</span>
+          ))}
+        </div>
+      ) : null}
+      {specs.departures?.length ? (
+        <div className="rounded-xl border border-border-soft bg-surface-muted/50 p-3">
+          <p className="mb-1.5 text-[13px] font-bold text-ink">Upcoming departures</p>
+          {specs.departures.map((d, i) => (
+            <div key={i} className="flex items-center justify-between text-[12px] text-ink-soft">
+              <span>{new Date(d.date).toLocaleDateString()}</span>
+              <span>{d.seatsTotal != null ? `${d.seatsTotal} seats` : ""} {d.status ? `· ${titleCase(d.status)}` : ""}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <ItineraryList
+        days={(specs.itinerary ?? []).map(({ location, ...d }) => ({ ...d, geo: location }))}
+        start={
+          specs.originLocation
+            ? { lat: specs.originLocation.lat, lng: specs.originLocation.lng, label: `Start${specs.originLocation.address ? ` — ${specs.originLocation.address}` : ""}` }
+            : undefined
+        }
+        end={
+          specs.destinationLocation
+            ? { lat: specs.destinationLocation.lat, lng: specs.destinationLocation.lng, label: `End${specs.destinationLocation.address ? ` — ${specs.destinationLocation.address}` : ""}` }
+            : undefined
+        }
+        route
+      />
+    </div>
+  );
+}
+
 // Cruise template details — mirrors cruiseForm.ts.
 function CruiseDetails({ specs }: { specs: PackageCruiseSpecs }) {
   const facts: { label: string; value: string }[] = [
@@ -274,7 +389,15 @@ function TaxiPackageDetails({ specs }: { specs: PackageTaxiPackageSpecs }) {
     <div className="flex flex-col gap-4">
       <FactGrid facts={facts} />
       {specs.startDates?.length ? <p className="text-[13px] text-ink-soft"><span className="font-bold text-ink">Start dates: </span>{specs.startDates.join(", ")}</p> : null}
-      <ItineraryList days={specs.itinerary ?? []} />
+      <ItineraryList
+        days={(specs.itinerary ?? []).map(({ location, ...d }) => ({ ...d, geo: location }))}
+        start={
+          specs.originLocation
+            ? { lat: specs.originLocation.lat, lng: specs.originLocation.lng, label: `Start${specs.originLocation.address ? ` — ${specs.originLocation.address}` : ""}` }
+            : undefined
+        }
+        route
+      />
     </div>
   );
 }
@@ -405,6 +528,35 @@ function TourCalendar({ price, onPick }: { price?: number | null; onPick: (iso: 
   );
 }
 
+// A real pinned location for this package — used to centre the "Location" map on
+// the actual place the admin/partner dropped a pin on. No text-search fallback:
+// searching a place by name (e.g. route.destinations) can resolve to an unrelated
+// business when the name is generic, so the map only ever renders when precise
+// coordinates were actually set. Tour specs carry a base lat/lng plus flat
+// per-stop locationLat/locationLng; tour_package/taxi_package nest per-day
+// coordinates under `location`.
+function firstPackageGeo(pkg: PackageDetail): { lat: number; lng: number } | undefined {
+  const itinerary = pkg.specs?.itinerary;
+  if (Array.isArray(itinerary)) {
+    for (const day of itinerary) {
+      if (!day || typeof day !== "object") continue;
+      const d = day as Record<string, unknown>;
+      const loc = d.location;
+      if (loc && typeof loc === "object") {
+        const l = loc as Record<string, unknown>;
+        if (typeof l.lat === "number" && typeof l.lng === "number") return { lat: l.lat, lng: l.lng };
+      }
+      if (typeof d.locationLat === "number" && typeof d.locationLng === "number") {
+        return { lat: d.locationLat, lng: d.locationLng };
+      }
+    }
+  }
+  const lat = pkg.specs?.latitude;
+  const lng = pkg.specs?.longitude;
+  if (typeof lat === "number" && typeof lng === "number") return { lat, lng };
+  return undefined;
+}
+
 export default function PackageDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const toast = useToast();
@@ -497,7 +649,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
           const gallery: PackageImage[] = pkg.images?.length ? pkg.images : (pkg.thumbnail ? [{ url: pkg.thumbnail }] : []);
           const duration = pkg.route.durationDays > 0 ? `${pkg.route.durationNights} Night ${pkg.route.durationDays} Days` : undefined;
           const fromPrice = pkg.fromPrice ?? pkg.referencePrice ?? null;
-          const mapQuery = encodeURIComponent(pkg.route.destinations[0] || pkg.route.origin || pkg.title);
+          const geo = firstPackageGeo(pkg);
           const cancellation = typeof pkg.specs?.cancellationPolicy === "string" ? pkg.specs.cancellationPolicy : "";
           const terms = typeof pkg.specs?.terms === "string" ? pkg.specs.terms : "";
           const documents = typeof pkg.specs?.documents === "string" ? pkg.specs.documents : "";
@@ -539,6 +691,9 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                 {pkg.kind === "tour_package" && (
                   <Section title="Package Details"><TourPackageDetails specs={pkg.specs as PackageTourPackageSpecs} /></Section>
                 )}
+                {pkg.kind === "holiday" && Array.isArray((pkg.specs as PackageHolidaySpecs)?.roomTiers) && (pkg.specs as PackageHolidaySpecs).roomTiers!.length > 0 && (
+                  <Section title="Package Details"><HolidayPackageDetails specs={pkg.specs as PackageHolidaySpecs} /></Section>
+                )}
                 {pkg.kind === "cruise" && (
                   <Section title="Cruise Details"><CruiseDetails specs={pkg.specs as PackageCruiseSpecs} /></Section>
                 )}
@@ -551,9 +706,9 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                   </Section>
                 )}
 
-                {/* Bundle components */}
-                {pkg.kind === "bundle" && pkg.components.length > 0 && (
-                  <Section title="What's in this bundle">
+                {/* Bundle / holiday tie-up components */}
+                {(pkg.kind === "bundle" || pkg.kind === "holiday") && pkg.components.length > 0 && (
+                  <Section title={pkg.kind === "holiday" ? "What's included in this holiday package" : "What's in this bundle"}>
                     <div className="grid gap-3 sm:grid-cols-2">
                       {pkg.components.map((c, i) => (
                         <div key={`${c.title}-${i}`} className="flex items-start justify-between gap-3 rounded-xl border border-border-soft bg-white p-4">
@@ -569,13 +724,14 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                   </Section>
                 )}
 
-                {/* Location */}
-                {(pkg.route.destinations.length > 0 || pkg.route.origin) && (
+                {/* Location — only shown when a real pin was dropped; no
+                    text-search fallback (see firstPackageGeo). */}
+                {geo && (
                   <Section title="Location">
                     <div className="overflow-hidden rounded-xl border border-border-soft">
                       <iframe
                         title="Map"
-                        src={`https://maps.google.com/maps?q=${mapQuery}&output=embed`}
+                        src={`https://maps.google.com/maps?q=${geo.lat},${geo.lng}&output=embed`}
                         className="h-72 w-full"
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
@@ -665,7 +821,11 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                   </div>
                 </Section>
 
-                {/* Gallery (mandatory images) */}
+                {/* Gallery (mandatory images) — taxi listings are short point-to-
+                    point rides, not multi-day tours; the top Carousel already
+                    shows the vehicle photos, so this redundant grid is skipped
+                    for kind "taxi" only (taxi_package still gets it). */}
+                {pkg.kind !== "taxi" && (
                 <Section title="Tour Gallery">
                   {gallery.length > 0 ? (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -677,6 +837,7 @@ export default function PackageDetailPage({ params }: { params: Promise<{ slug: 
                     <p className="text-[13px] text-ink-muted">No gallery images available.</p>
                   )}
                 </Section>
+                )}
               </div>
 
               {/* ── Right sidebar ── */}

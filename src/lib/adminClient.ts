@@ -292,6 +292,7 @@ export type AdminListingType =
   | "taxi_package"
   | "tour"
   | "tour_package"
+  | "holiday"
   | "cruise"
   | "sightseeing"
   | "transfer"

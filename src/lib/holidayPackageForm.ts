@@ -1,13 +1,17 @@
-import type { TourPackageApi } from "@/lib/partnerClient";
+import type { HolidayPackageApi } from "@/lib/partnerClient";
 
-// Form-state shape + mappers for the dedicated TourPackage manager. Itinerary
-// (with meal checkboxes), discounts, and departures are dynamic rows; includes
-// are id selections. The builder serializes a structured `payload` plus media.
+// Form-state shape + mappers for the dedicated HolidayPackage manager. Mirrors
+// tourPackageForm.ts closely — itinerary (with meal checkboxes), discounts, and
+// departures are dynamic rows; includes are id selections. The one structural
+// difference: pricing is a set of room-tier rows (roomType × mealPlan × price),
+// the way real OTA holiday packages (MakeMyTrip, Yatra, Cleartrip) price a
+// listing, instead of one flat price.
 
 export const PACKAGE_TYPES = ["fit", "group", "honeymoon", "family", "corporate", "pilgrimage"] as const;
 export const DEPARTURE_STATUS = ["open", "filling_fast", "closed", "cancelled"] as const;
-export const DIFFICULTY_LEVELS = ["easy", "moderate", "challenging"] as const;
 export const PACKAGE_CURRENCIES = ["INR", "USD", "EUR", "AED", "GBP"] as const;
+export const HOLIDAY_ROOM_TYPES = ["standard", "deluxe", "super_deluxe", "premium", "luxury", "suite"] as const;
+export const HOLIDAY_MEAL_PLANS = ["room_only", "breakfast", "half_board", "full_board", "all_inclusive"] as const;
 
 export type PackageItineraryRow = {
   day: string;
@@ -18,26 +22,41 @@ export type PackageItineraryRow = {
   dinner: boolean;
   accommodation: string;
   activities: string;
-  // Pin-dropped location for this day (optional).
   locationLat: string;
   locationLng: string;
   locationAddress: string;
 };
 export type PackageDiscountRow = { label: string; percent: string; validUntil: string };
 export type PackageDepartureRow = { date: string; seatsTotal: string; status: string };
+export type RoomTierRow = {
+  roomType: string;
+  mealPlan: string;
+  price: string;
+  maxOccupancy: string;
+  childPrice: string;
+  extraBedPrice: string;
+};
 
-export type TourPackageFormState = {
+export type HolidayPackageFormState = {
   title: string;
   status: "draft" | "active";
   packageType: string;
-  difficultyLevel: string;
   description: string;
   highlights: string;
   tags: string;
   state: string;
   // route
   origin: string;
+  // Pin-dropped start/end of the route — the customer-facing route map begins at
+  // the origin pin and ends at the destination pin, connected through the
+  // itinerary day pins.
+  originLat: string;
+  originLng: string;
+  originAddress: string;
   destinations: string;
+  destinationLat: string;
+  destinationLng: string;
+  destinationAddress: string;
   durationDays: string;
   durationNights: string;
   // includes
@@ -48,39 +67,43 @@ export type TourPackageFormState = {
   exclusions: string;
   // dynamic
   itinerary: PackageItineraryRow[];
+  roomTiers: RoomTierRow[];
   discounts: PackageDiscountRow[];
   departures: PackageDepartureRow[];
   // pricing
-  basePrice: string;
   currency: string;
-  perPerson: boolean;
-  maxPersons: string;
-  childPrice: string;
-  infantPrice: string;
-  extraPersonCharge: string;
   singleSupplement: string;
   // media
   videoUrl: string;
 };
 
-export type TourPackageFiles = { thumbnail: File | null; images: File[] };
+export type HolidayPackageFiles = { thumbnail: File | null; images: File[] };
 
 export function emptyItineraryRow(day: number): PackageItineraryRow {
   return { day: String(day), title: "", description: "", breakfast: false, lunch: false, dinner: false, accommodation: "", activities: "", locationLat: "", locationLng: "", locationAddress: "" };
 }
 
-export function emptyTourPackageForm(): TourPackageFormState {
+export function emptyRoomTierRow(): RoomTierRow {
+  return { roomType: "standard", mealPlan: "breakfast", price: "", maxOccupancy: "2", childPrice: "", extraBedPrice: "" };
+}
+
+export function emptyHolidayPackageForm(): HolidayPackageFormState {
   return {
     title: "",
     status: "draft",
     packageType: "group",
-    difficultyLevel: "",
     description: "",
     highlights: "",
     tags: "",
     state: "",
     origin: "",
+    originLat: "",
+    originLng: "",
+    originAddress: "",
     destinations: "",
+    destinationLat: "",
+    destinationLng: "",
+    destinationAddress: "",
     durationDays: "1",
     durationNights: "0",
     includeTaxi: "",
@@ -89,15 +112,10 @@ export function emptyTourPackageForm(): TourPackageFormState {
     customInclusions: "",
     exclusions: "",
     itinerary: [emptyItineraryRow(1)],
+    roomTiers: [emptyRoomTierRow()],
     discounts: [],
     departures: [],
-    basePrice: "",
     currency: "INR",
-    perPerson: true,
-    maxPersons: "",
-    childPrice: "",
-    infantPrice: "0",
-    extraPersonCharge: "",
     singleSupplement: "",
     videoUrl: "",
   };
@@ -110,18 +128,23 @@ function isoDate(value: string): string {
   return value.length >= 10 ? value.slice(0, 10) : value;
 }
 
-export function tourPackageFormFromApi(pkg: TourPackageApi): TourPackageFormState {
+export function holidayPackageFormFromApi(pkg: HolidayPackageApi): HolidayPackageFormState {
   return {
     title: pkg.title,
     status: pkg.status === "active" ? "active" : "draft",
     packageType: pkg.packageType,
-    difficultyLevel: pkg.difficultyLevel ?? "",
     description: pkg.description ?? "",
     highlights: toCsv(pkg.highlights),
     tags: toCsv(pkg.tags),
     state: pkg.state ?? "",
     origin: pkg.route.origin ?? "",
+    originLat: pkg.route.originLocation ? String(pkg.route.originLocation.lat) : "",
+    originLng: pkg.route.originLocation ? String(pkg.route.originLocation.lng) : "",
+    originAddress: pkg.route.originLocation?.address ?? "",
     destinations: toCsv(pkg.route.destinations),
+    destinationLat: pkg.route.destinationLocation ? String(pkg.route.destinationLocation.lat) : "",
+    destinationLng: pkg.route.destinationLocation ? String(pkg.route.destinationLocation.lng) : "",
+    destinationAddress: pkg.route.destinationLocation?.address ?? "",
     durationDays: String(pkg.route.durationDays),
     durationNights: String(pkg.route.durationNights),
     includeTaxi: pkg.includes.taxi ?? "",
@@ -145,7 +168,18 @@ export function tourPackageFormFromApi(pkg: TourPackageApi): TourPackageFormStat
             locationAddress: d.location?.address ?? "",
           }))
         : [emptyItineraryRow(1)],
-    discounts: pkg.pricing.discounts.map((d) => ({
+    roomTiers:
+      pkg.roomTiers.length > 0
+        ? pkg.roomTiers.map((t) => ({
+            roomType: t.roomType,
+            mealPlan: t.mealPlan,
+            price: String(t.price),
+            maxOccupancy: String(t.maxOccupancy),
+            childPrice: t.childPrice !== undefined ? String(t.childPrice) : "",
+            extraBedPrice: t.extraBedPrice !== undefined ? String(t.extraBedPrice) : "",
+          }))
+        : [emptyRoomTierRow()],
+    discounts: pkg.discounts.map((d) => ({
       label: d.label,
       percent: String(d.percent),
       validUntil: d.validUntil ? isoDate(d.validUntil) : "",
@@ -155,14 +189,8 @@ export function tourPackageFormFromApi(pkg: TourPackageApi): TourPackageFormStat
       seatsTotal: d.seatsTotal !== undefined ? String(d.seatsTotal) : "",
       status: d.status,
     })),
-    basePrice: String(pkg.pricing.basePrice),
-    currency: pkg.pricing.currency,
-    perPerson: pkg.pricing.perPerson,
-    maxPersons: pkg.pricing.maxPersons !== undefined ? String(pkg.pricing.maxPersons) : "",
-    childPrice: pkg.pricing.childPrice !== undefined ? String(pkg.pricing.childPrice) : "",
-    infantPrice: String(pkg.pricing.infantPrice),
-    extraPersonCharge: pkg.pricing.extraPersonCharge !== undefined ? String(pkg.pricing.extraPersonCharge) : "",
-    singleSupplement: pkg.pricing.singleSupplement !== undefined ? String(pkg.pricing.singleSupplement) : "",
+    currency: pkg.currency,
+    singleSupplement: pkg.singleSupplement !== undefined ? String(pkg.singleSupplement) : "",
     videoUrl: pkg.videoUrl ?? "",
   };
 }
@@ -176,30 +204,39 @@ function numOrUndef(value: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function validateTourPackageForm(state: TourPackageFormState): string | null {
+export function validateHolidayPackageForm(state: HolidayPackageFormState): string | null {
   if (!state.title.trim()) return "Title is required.";
   if (fromCsv(state.destinations).length === 0) return "Add at least one destination.";
   if (!(Number(state.durationDays) >= 1)) return "Duration (days) must be at least 1.";
-  if (!(Number(state.basePrice) > 0)) return "Base price must be greater than 0.";
+  const tiers = state.roomTiers.filter((t) => t.price.trim());
+  if (tiers.length === 0) return "Add at least one room tier with a price.";
+  if (tiers.some((t) => !(Number(t.price) > 0))) return "Room tier prices must be greater than 0.";
   return null;
 }
 
-export function buildTourPackageFormData(
-  state: TourPackageFormState,
-  files: TourPackageFiles,
+export function buildHolidayPackageFormData(
+  state: HolidayPackageFormState,
+  files: HolidayPackageFiles,
 ): FormData {
   const payload = {
     title: state.title.trim(),
     status: state.status,
     packageType: state.packageType,
-    difficultyLevel: state.difficultyLevel || undefined,
     description: state.description.trim() || undefined,
     highlights: fromCsv(state.highlights),
     tags: fromCsv(state.tags),
     state: state.state || undefined,
     route: {
       origin: state.origin.trim() || undefined,
+      originLocation:
+        numOrUndef(state.originLat) !== undefined && numOrUndef(state.originLng) !== undefined
+          ? { lat: numOrUndef(state.originLat), lng: numOrUndef(state.originLng), address: state.originAddress.trim() || undefined }
+          : undefined,
       destinations: fromCsv(state.destinations),
+      destinationLocation:
+        numOrUndef(state.destinationLat) !== undefined && numOrUndef(state.destinationLng) !== undefined
+          ? { lat: numOrUndef(state.destinationLat), lng: numOrUndef(state.destinationLng), address: state.destinationAddress.trim() || undefined }
+          : undefined,
       durationDays: Number(state.durationDays),
       durationNights: Number(state.durationNights),
     },
@@ -225,23 +262,25 @@ export function buildTourPackageFormData(
           location: lat !== undefined && lng !== undefined ? { lat, lng, address: r.locationAddress.trim() || undefined } : undefined,
         };
       }),
-    pricing: {
-      basePrice: Number(state.basePrice),
-      currency: state.currency,
-      perPerson: state.perPerson,
-      maxPersons: numOrUndef(state.maxPersons),
-      childPrice: numOrUndef(state.childPrice),
-      infantPrice: numOrUndef(state.infantPrice) ?? 0,
-      extraPersonCharge: numOrUndef(state.extraPersonCharge),
-      singleSupplement: numOrUndef(state.singleSupplement),
-      discounts: state.discounts
-        .filter((d) => d.label.trim() && d.percent.trim())
-        .map((d) => ({
-          label: d.label.trim(),
-          percent: Number(d.percent),
-          validUntil: d.validUntil || undefined,
-        })),
-    },
+    roomTiers: state.roomTiers
+      .filter((t) => t.price.trim())
+      .map((t) => ({
+        roomType: t.roomType,
+        mealPlan: t.mealPlan,
+        price: Number(t.price),
+        maxOccupancy: numOrUndef(t.maxOccupancy) ?? 2,
+        childPrice: numOrUndef(t.childPrice),
+        extraBedPrice: numOrUndef(t.extraBedPrice),
+      })),
+    currency: state.currency,
+    singleSupplement: numOrUndef(state.singleSupplement),
+    discounts: state.discounts
+      .filter((d) => d.label.trim() && d.percent.trim())
+      .map((d) => ({
+        label: d.label.trim(),
+        percent: Number(d.percent),
+        validUntil: d.validUntil || undefined,
+      })),
     departures: state.departures
       .filter((d) => d.date.trim())
       .map((d) => ({

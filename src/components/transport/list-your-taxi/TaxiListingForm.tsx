@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Checkbox from "@/components/ui/Checkbox";
 import Input from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
+import TaxiTimeSlotInput from "@/components/shared/TaxiTimeSlotInput";
 import {
   buildTaxiListingFormData,
   createEmptyTaxiListingDraft,
@@ -17,17 +18,13 @@ import { partnerClient } from "@/lib/partnerClient";
 import { cn } from "@/lib/cn";
 import {
   TAXI_AMENITIES,
-  TAXI_AVAILABLE_DAYS,
   TAXI_FUEL_TYPES,
-  TAXI_TIME_SLOTS,
   TAXI_TRANSMISSION_TYPES,
   TAXI_VEHICLE_TYPES,
-  type TaxiAvailableDay,
   type TaxiListingDraft,
   type TaxiListingDraftKey,
   type TaxiListingErrors,
   type TaxiListingUploadFiles,
-  type TaxiTimeSlot,
 } from "@/types/taxiListing";
 
 type SelectionFieldProps = {
@@ -82,22 +79,6 @@ export default function TaxiListingForm() {
       if (!current[key]) return current;
       return { ...current, [key]: undefined };
     });
-  }
-
-  function toggleAvailableDay(day: TaxiAvailableDay) {
-    const next = draft.availableDays.includes(day)
-      ? draft.availableDays.filter((item) => item !== day)
-      : [...draft.availableDays, day];
-
-    setField("availableDays", next);
-  }
-
-  function toggleTimeSlot(slot: TaxiTimeSlot) {
-    const next = draft.availableTimeSlots.includes(slot)
-      ? draft.availableTimeSlots.filter((item) => item !== slot)
-      : [...draft.availableTimeSlots, slot];
-
-    setField("availableTimeSlots", next);
   }
 
   function toggleAmenity(amenity: string) {
@@ -484,32 +465,11 @@ export default function TaxiListingForm() {
             Availability
           </p>
           <div className="mt-5 grid gap-6">
-            <SelectionField title="Available Days" required error={errors.availableDays}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {TAXI_AVAILABLE_DAYS.map((day) => (
-                  <Checkbox
-                    key={day}
-                    id={`available-day-${day}`}
-                    checked={draft.availableDays.includes(day)}
-                    onChange={() => toggleAvailableDay(day)}
-                    label={day}
-                  />
-                ))}
-              </div>
-            </SelectionField>
-            <SelectionField title="Available Time Slots" required error={errors.availableTimeSlots}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {TAXI_TIME_SLOTS.map((slot) => (
-                  <Checkbox
-                    key={slot}
-                    id={`available-slot-${slot}`}
-                    checked={draft.availableTimeSlots.includes(slot)}
-                    onChange={() => toggleTimeSlot(slot)}
-                    label={slot}
-                  />
-                ))}
-              </div>
-            </SelectionField>
+            <TaxiTimeSlotInput
+              slots={draft.availableTimeSlots}
+              onChange={(slots) => setField("availableTimeSlots", slots)}
+              error={errors.availableTimeSlots}
+            />
           </div>
         </section>
 

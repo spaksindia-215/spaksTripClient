@@ -47,7 +47,7 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: "Packages",
     href: "#",
     menu: [
-      { labelKey: "Tour Packages", href: "/packages?kind=tour_package" },
+      { labelKey: "Tour Packages", href: "/packages" },
       { labelKey: "Taxi Packages", href: "/taxi-package" },
       { labelKey: "Tours", href: "/tours" },
     ],
@@ -79,11 +79,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     labelKey: "nav.cruise",
-    href: "#",
-    menu: [
-      { labelKey: "nav.cruise_for_andaman", href: "/cruise/andaman" },
-      { labelKey: "nav.general_cruise", href: "/cruise" },
-    ],
+    href: "/cruise",
   },
   {
     labelKey: "nav.train",

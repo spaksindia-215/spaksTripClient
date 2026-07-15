@@ -41,6 +41,7 @@ export type TourFormState = {
   // location
   basedIn: string;
   coversCities: string;
+  state: string;
   latitude: string;
   longitude: string;
   // duration
@@ -86,6 +87,7 @@ export function emptyTourForm(): TourFormState {
     languages: "",
     basedIn: "",
     coversCities: "",
+    state: "",
     latitude: "",
     longitude: "",
     durationHours: "",
@@ -129,6 +131,7 @@ export function tourFormFromApi(tour: TourListingApi): TourFormState {
     languages: toCsv(tour.languages),
     basedIn: tour.basedIn,
     coversCities: toCsv(tour.coversCities),
+    state: tour.state ?? "",
     latitude: tour.coordinates ? String(tour.coordinates.coordinates[1]) : "",
     longitude: tour.coordinates ? String(tour.coordinates.coordinates[0]) : "",
     durationHours: tour.durationHours !== undefined ? String(tour.durationHours) : "",
@@ -201,6 +204,7 @@ export function buildTourFormData(state: TourFormState, files: TourFiles): FormD
     languages: fromCsv(state.languages),
     basedIn: state.basedIn.trim(),
     coversCities: fromCsv(state.coversCities),
+    state: state.state.trim() || undefined,
     latitude: numOrUndef(state.latitude),
     longitude: numOrUndef(state.longitude),
     durationHours: numOrUndef(state.durationHours),

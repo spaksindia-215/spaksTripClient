@@ -61,8 +61,10 @@ export type TaxiPackageApi = {
   title: string;
   slug: string;
   thumbnail?: string;
+  state?: string;
   route: {
     origin: string;
+    originLocation?: { lat: number; lng: number; address?: string };
     destinations: string[];
     totalKm?: number;
     durationDays: number;
@@ -77,6 +79,7 @@ export type TaxiPackageApi = {
     activities: string[];
     distance?: number;
     overnight?: string;
+    location?: { lat: number; lng: number; address?: string };
   }[];
   pricing: {
     basePrice: number;
@@ -110,6 +113,7 @@ export type TourListingApi = {
   category: string;
   basedIn: string;
   coversCities: string[];
+  state?: string;
   coordinates?: { type: "Point"; coordinates: [number, number] };
   durationHours?: number;
   durationDays?: number;
@@ -204,6 +208,7 @@ export type TourPackageApi = {
   slug: string;
   packageType: string;
   thumbnail?: string;
+  state?: string;
   route: { origin?: string; destinations: string[]; durationDays: number; durationNights: number };
   includes: { taxi?: string; hotels: string[]; tours: string[] };
   customInclusions: string[];
@@ -235,6 +240,58 @@ export type TourPackageApi = {
   highlights: string[];
   tags: string[];
   difficultyLevel?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Typed HolidayPackage as returned by the backend (mirrors the model's toJSON).
+// Same shape as TourPackageApi except roomTiers replaces the flat pricing block.
+export type HolidayPackageApi = {
+  id: string;
+  partner: string;
+  status: "draft" | "active" | "paused" | "suspended";
+  title: string;
+  slug: string;
+  packageType: string;
+  thumbnail?: string;
+  state?: string;
+  route: {
+    origin?: string;
+    originLocation?: { lat: number; lng: number; address?: string };
+    destinations: string[];
+    destinationLocation?: { lat: number; lng: number; address?: string };
+    durationDays: number;
+    durationNights: number;
+  };
+  includes: { taxi?: string; hotels: string[]; tours: string[] };
+  customInclusions: string[];
+  exclusions: string[];
+  itinerary: {
+    day: number;
+    title?: string;
+    description?: string;
+    meals: { breakfast: boolean; lunch: boolean; dinner: boolean };
+    accommodation?: string;
+    activities: string[];
+    location?: { lat: number; lng: number; address?: string };
+  }[];
+  roomTiers: {
+    roomType: string;
+    mealPlan: string;
+    price: number;
+    maxOccupancy: number;
+    childPrice?: number;
+    extraBedPrice?: number;
+  }[];
+  currency: string;
+  singleSupplement?: number;
+  discounts: { label: string; percent: number; validUntil?: string }[];
+  departures: { date: string; seatsTotal?: number; seatsBooked: number; status: string }[];
+  images: { url: string; caption?: string; isPrimary?: boolean }[];
+  videoUrl?: string;
+  description?: string;
+  highlights: string[];
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -621,6 +678,26 @@ export const partnerClient = {
 
     async remove(id: string): Promise<void> {
       await api<null>(`/api/partner/tour-packages/${id}`, { method: "DELETE" });
+    },
+  },
+
+  // Holiday packages (typed model; cross-model refs; thumbnail/images to Cloudinary).
+  holidayPackages: {
+    async list(): Promise<HolidayPackageApi[]> {
+      const response = await api<{ items: HolidayPackageApi[] }>("/api/partner/holiday-packages");
+      return response.items;
+    },
+
+    async create(form: FormData): Promise<HolidayPackageApi> {
+      return multipart<HolidayPackageApi>("/api/partner/holiday-packages", "POST", form);
+    },
+
+    async update(id: string, form: FormData): Promise<HolidayPackageApi> {
+      return multipart<HolidayPackageApi>(`/api/partner/holiday-packages/${id}`, "PATCH", form);
+    },
+
+    async remove(id: string): Promise<void> {
+      await api<null>(`/api/partner/holiday-packages/${id}`, { method: "DELETE" });
     },
   },
 

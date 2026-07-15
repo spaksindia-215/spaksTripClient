@@ -62,8 +62,10 @@ export const PACKAGE_KIND_SPECS: Partial<Record<PackageKind, KindSpecField[]>> =
     { key: "pricePerKm", label: "Price per km (₹)", type: "number" },
     { key: "driverIncluded", label: "Driver included", type: "select", options: [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] },
     { key: "selfDriveAvailable", label: "Self-drive available", type: "select", options: [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] },
-    { key: "availableDays", label: "Available days", type: "checklist", options: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] },
-    { key: "availableTimeSlots", label: "Available time slots", type: "checklist", options: ["06:00 - 10:00", "10:00 - 14:00", "14:00 - 18:00", "18:00 - 22:00", "22:00 - 06:00"] },
+    // Free-entry, not a fixed preset list — a taxi is a point-to-point ride, not
+    // an itinerary with operating days/nights (that's taxi_package). Admin types
+    // the exact pickup window(s), e.g. "06:00 - 09:00, 17:30 - 19:00".
+    { key: "availableTimeSlots", label: "Available time slots", type: "csv", placeholder: "06:00 - 09:00, 17:30 - 19:00" },
     { key: "amenities", label: "Amenities", type: "checklist", options: ["Wi-Fi", "Phone Charger", "Water Bottles", "Music System", "First Aid Kit", "Child Seat", "GPS Tracking", "Extra Legroom"] },
   ],
   // Matches the partner create form exactly (client/src/lib/serviceModules.ts →

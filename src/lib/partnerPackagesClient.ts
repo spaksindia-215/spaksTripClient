@@ -46,6 +46,9 @@ export type PartnerEnquiry = {
   createdAt: string;
 };
 
+// An active taxi_package whose route touches a given hotel's city — the tie-up prompt.
+export type HolidayMatch = PackageSummary & { id: string; operatorCount: number; fromPrice: number | null };
+
 // A single service listing the partner owns (component source for bundles).
 export type MyServiceItem = {
   refModel: ListingRefModel;
@@ -101,6 +104,17 @@ export const partnerPackagesClient = {
   // ── The partner's own service inventory (component source for bundles) ────────
   async myServices(): Promise<MyServiceGroup[]> {
     return (await api<{ groups: MyServiceGroup[] }>("/api/partner/packages/my-services")).groups;
+  },
+
+  // ── Holiday tie-ups (hotel + taxi package → holiday package) ───────────────────
+  async holidayMatches(hotelId: string): Promise<{ items: HolidayMatch[]; city: string | null }> {
+    return api<{ items: HolidayMatch[]; city: string | null }>(`/api/partner/packages/holiday-matches/${hotelId}`);
+  },
+  async createHolidayTieUp(hotelId: string, taxiPackageId: string): Promise<PackageDetail> {
+    return (await api<{ item: PackageDetail; reused?: boolean }>("/api/partner/packages/holiday-tie-up", {
+      method: "POST",
+      body: { hotelId, taxiPackageId },
+    })).item;
   },
 
   // ── Catalog the partner can offer on (templates + every active package) ───────

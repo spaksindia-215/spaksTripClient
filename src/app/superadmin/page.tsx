@@ -15,6 +15,7 @@ import {
   type AdminUser,
   type AdminListing,
   type AdminListingType,
+  type AdminPackage,
   type NavbarVisibility,
   type PlatformMarkupConfig,
   type PlatformMarkupRule,
@@ -66,6 +67,7 @@ const LISTING_TYPE_FILTERS: Array<{ value: AdminListingType | "all"; label: stri
   { value: "taxi_package", label: "Taxi Pkgs" },
   { value: "tour", label: "Tours" },
   { value: "tour_package", label: "Tour Pkgs" },
+  { value: "holiday", label: "Holiday Pkgs" },
   { value: "cruise", label: "Cruises" },
   { value: "sightseeing", label: "SightSeeing" },
   { value: "transfer", label: "Transfers" },
@@ -78,12 +80,12 @@ const LISTING_TYPE_FILTERS: Array<{ value: AdminListingType | "all"; label: stri
 // of the matching kind. Types without a Package kind (hotel/all) open the picker.
 const TEMPLATE_KIND_FOR: Record<string, string> = {
   taxi: "taxi", taxi_package: "taxi_package", tour: "tour", tour_package: "tour_package",
-  cruise: "cruise", sightseeing: "sightseeing", transfer: "transfer", self_drive: "self_drive",
+  holiday: "holiday", cruise: "cruise", sightseeing: "sightseeing", transfer: "transfer", self_drive: "self_drive",
   islandhopper: "islandhopper", visa: "visa",
 };
 const ADD_LABEL: Record<string, string> = {
   all: "template", hotel: "template", taxi: "taxi", taxi_package: "taxi package",
-  tour: "tour", tour_package: "tour package", cruise: "cruise", sightseeing: "sightseeing",
+  tour: "tour", tour_package: "tour package", holiday: "holiday package", cruise: "cruise", sightseeing: "sightseeing",
   transfer: "transfer", self_drive: "self-drive", islandhopper: "islandhopper", visa: "visa consultancy",
 };
 
@@ -91,6 +93,40 @@ const LISTING_STATUS_TONE: Record<string, "neutral" | "success" | "warn" | "dang
   active: "success", draft: "neutral", pending: "warn", paused: "warn", suspended: "danger",
 };
 const LISTING_STATUS_FILTERS = ["all", "pending", "active", "draft", "paused", "suspended"] as const;
+
+// "Partner Listings" unifies two structurally separate collections: typed
+// partner-resource docs (a real TaxiListing/TourPackage/etc a partner submitted
+// for review — reviewed via /api/admin/listings) and marketplace Package docs
+// (admin-authored templates + partner-custom catalog packages, created via the
+// "+ Add" button here or on Packages & Enquiries — reviewed via
+// /api/admin/packages). Same underlying RESOURCE_STATUS lifecycle either way, so
+// they render as one merged, sorted list; `source` routes each action to the
+// right backend.
+type UnifiedListing = Omit<AdminListing, "type"> & { type: string; source: "listing" | "package" };
+
+function kindLabel(kind: string): string {
+  return LISTING_TYPE_FILTERS.find((f) => f.value === kind)?.label ?? titleCase(kind);
+}
+
+function titleCase(value: string): string {
+  return value.split("_").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+
+function packageToListing(pkg: AdminPackage): UnifiedListing {
+  const author = typeof pkg.author === "object" ? pkg.author : undefined;
+  return {
+    id: pkg.id,
+    type: pkg.kind,
+    typeLabel: kindLabel(pkg.kind),
+    title: pkg.title,
+    thumbnail: pkg.thumbnail ?? pkg.images?.[0]?.url,
+    subtitle: [pkg.origin === "platform" ? "Curated" : undefined, titleCase(pkg.scope), pkg.route.destinations.join(", ")].filter(Boolean).join(" · "),
+    status: pkg.status,
+    partner: author ? { id: author.id, name: author.name ?? author.companyName } : undefined,
+    createdAt: pkg.createdAt ?? new Date(0).toISOString(),
+    source: "package",
+  };
+}
 
 const USER_FILTERS: Array<{ value: UserRole | "all"; label: string }> = [
   { value: "all", label: "All" },
@@ -124,7 +160,7 @@ export default function SuperadminPage() {
   const [pending, setPending] = useState<AdminUser[]>([]);
   const [pendingLoading, setPendingLoading] = useState(true);
 
-  const [listings, setListings] = useState<AdminListing[]>([]);
+  const [listings, setListings] = useState<UnifiedListing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(true);
   const [listingType, setListingType] = useState<AdminListingType | "all">("all");
   const [listingStatus, setListingStatus] = useState<string>("all");
@@ -198,11 +234,20 @@ export default function SuperadminPage() {
           if (active) setPending(items);
         } else if (tab === "listings") {
           setListingsLoading(true);
-          const items = await adminClient.listings.list({
-            status: listingStatus,
-            type: listingType === "all" ? undefined : listingType,
-          });
-          if (active) setListings(items);
+          const statusFilter = listingStatus === "all" ? undefined : listingStatus;
+          // Hotels have no marketplace-Package counterpart (no "hotel" Package kind) —
+          // skip that fetch rather than sending a kind filter the endpoint would ignore.
+          const [typed, packages] = await Promise.all([
+            adminClient.listings.list({ status: listingStatus, type: listingType === "all" ? undefined : listingType }),
+            listingType === "hotel"
+              ? Promise.resolve([])
+              : adminClient.packages.list({ status: statusFilter, kind: listingType === "all" ? undefined : listingType }),
+          ]);
+          const merged: UnifiedListing[] = [
+            ...typed.map((l): UnifiedListing => ({ ...l, source: "listing" })),
+            ...packages.map(packageToListing),
+          ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          if (active) setListings(merged);
         } else if (tab === "users") {
           const items = await adminClient.users(userFilter === "all" ? undefined : userFilter);
           if (active) setUsers(items);
@@ -452,10 +497,11 @@ export default function SuperadminPage() {
 
   const reloadListings = () => setListingsReloadKey((k) => k + 1);
 
-  const approveListing = async (listing: AdminListing) => {
+  const approveListing = async (listing: UnifiedListing) => {
     setActionLoading(true);
     try {
-      await adminClient.listings.approve(listing.type, listing.id);
+      if (listing.source === "package") await adminClient.packages.setStatus(listing.id, "active");
+      else await adminClient.listings.approve(listing.type, listing.id);
       toast.push({ title: "Listing approved", description: `${listing.title} is now live.`, tone: "success" });
       reloadListings();
     } catch (error) {
@@ -467,10 +513,11 @@ export default function SuperadminPage() {
   };
 
   // Pause / Activate / Suspend across any vertical (unified management dashboard).
-  const setListingStatusAction = async (listing: AdminListing, status: string) => {
+  const setListingStatusAction = async (listing: UnifiedListing, status: string) => {
     setActionLoading(true);
     try {
-      await adminClient.listings.setStatus(listing.type, listing.id, status);
+      if (listing.source === "package") await adminClient.packages.setStatus(listing.id, status);
+      else await adminClient.listings.setStatus(listing.type, listing.id, status);
       toast.push({ title: `Status set to ${status}`, tone: "success" });
       reloadListings();
     } catch (error) {
@@ -481,11 +528,12 @@ export default function SuperadminPage() {
     }
   };
 
-  const deleteListing = async (listing: AdminListing) => {
+  const deleteListing = async (listing: UnifiedListing) => {
     if (!window.confirm(`Delete "${listing.title}"? This cannot be undone.`)) return;
     setActionLoading(true);
     try {
-      await adminClient.listings.remove(listing.type, listing.id);
+      if (listing.source === "package") await adminClient.packages.remove(listing.id);
+      else await adminClient.listings.remove(listing.type, listing.id);
       toast.push({ title: "Deleted", tone: "success" });
       reloadListings();
     } catch (error) {
@@ -496,10 +544,13 @@ export default function SuperadminPage() {
     }
   };
 
-  const rejectListing = async (listing: AdminListing) => {
+  const rejectListing = async (listing: UnifiedListing) => {
     setActionLoading(true);
     try {
-      await adminClient.listings.reject(listing.type, listing.id);
+      // Packages have no dedicated reject endpoint — sending pending back to
+      // draft is exactly what the typed-listing reject endpoint does too.
+      if (listing.source === "package") await adminClient.packages.setStatus(listing.id, "draft");
+      else await adminClient.listings.reject(listing.type, listing.id);
       toast.push({ title: "Listing rejected", description: `${listing.title} was sent back to the partner.`, tone: "success" });
       reloadListings();
     } catch (error) {
@@ -815,7 +866,7 @@ export default function SuperadminPage() {
                     const partner = listing.partner;
                     return (
                       <article
-                        key={`${listing.type}-${listing.id}`}
+                        key={`${listing.source}-${listing.type}-${listing.id}`}
                         className="flex flex-col gap-3 rounded-xl border border-border-soft bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex gap-3">

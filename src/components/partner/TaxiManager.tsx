@@ -8,6 +8,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import TaxiTimeSlotInput from "@/components/shared/TaxiTimeSlotInput";
 import { useSubmitForReview } from "./useSubmitForReview";
 import { useToast } from "@/components/ui/Toast";
 import { partnerClient, type TaxiListingApi } from "@/lib/partnerClient";
@@ -25,15 +26,11 @@ import {
   TAXI_VEHICLE_TYPES,
   TAXI_FUEL_TYPES,
   TAXI_TRANSMISSION_TYPES,
-  TAXI_AVAILABLE_DAYS,
-  TAXI_TIME_SLOTS,
   TAXI_AMENITIES,
   type TaxiListingDraft,
   type TaxiListingEditorDraft,
   type TaxiListingUploadFiles,
   type TaxiListingView,
-  type TaxiAvailableDay,
-  type TaxiTimeSlot,
   type TaxiVehicleType,
   type TaxiFuelType,
   type TaxiTransmissionType,
@@ -194,8 +191,7 @@ export default function TaxiManager() {
               <Input id="tx-perkm" label="Price per km" type="number" min="0" value={editForm.pricePerKm} onChange={(e) => setEditField("pricePerKm", e.target.value)} />
             </Section>
             <Section title="Availability">
-              <CheckGroup label="Available days" options={TAXI_AVAILABLE_DAYS} selected={editForm.availableDays} onToggle={(d) => setEditField("availableDays", toggle(editForm.availableDays, d as TaxiAvailableDay))} />
-              <CheckGroup label="Time slots" options={TAXI_TIME_SLOTS} selected={editForm.availableTimeSlots} onToggle={(s) => setEditField("availableTimeSlots", toggle(editForm.availableTimeSlots, s as TaxiTimeSlot))} />
+              <TaxiTimeSlotInput slots={editForm.availableTimeSlots} onChange={(slots) => setEditField("availableTimeSlots", slots)} />
             </Section>
             <Section title="Amenities & description">
               <CheckGroup label="Amenities" options={TAXI_AMENITIES} selected={editForm.amenities} onToggle={(a) => setEditField("amenities", toggle(editForm.amenities, a))} />
@@ -251,8 +247,7 @@ export default function TaxiManager() {
             </Section>
 
             <Section title="Availability">
-              <CheckGroup label="Available days" options={TAXI_AVAILABLE_DAYS} selected={createForm.availableDays} onToggle={(d) => setCreateField("availableDays", toggle(createForm.availableDays, d as TaxiAvailableDay))} />
-              <CheckGroup label="Time slots" options={TAXI_TIME_SLOTS} selected={createForm.availableTimeSlots} onToggle={(s) => setCreateField("availableTimeSlots", toggle(createForm.availableTimeSlots, s as TaxiTimeSlot))} />
+              <TaxiTimeSlotInput slots={createForm.availableTimeSlots} onChange={(slots) => setCreateField("availableTimeSlots", slots)} />
             </Section>
 
             <Section title="Amenities & description">

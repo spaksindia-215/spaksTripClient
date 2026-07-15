@@ -10,6 +10,8 @@ import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { adminClient } from "@/lib/adminClient";
 import LocationPickerField from "@/components/partner/LocationPickerField";
+import StateSelect from "@/components/ui/StateSelect";
+import ItineraryDescriptionField from "@/components/partner/ItineraryDescriptionField";
 import { PACKAGE_KIND_SPECS } from "@/lib/packageKindSpecs";
 import type { PackageKind } from "@/lib/packagesClient";
 import {
@@ -54,6 +56,16 @@ import {
   type PackageDiscountRow,
   type PackageDepartureRow,
 } from "@/lib/tourPackageForm";
+import {
+  buildHolidayPackageFormData,
+  emptyHolidayPackageForm,
+  validateHolidayPackageForm,
+  emptyRoomTierRow,
+  HOLIDAY_ROOM_TYPES,
+  HOLIDAY_MEAL_PLANS,
+  type HolidayPackageFormState,
+  type RoomTierRow,
+} from "@/lib/holidayPackageForm";
 import {
   buildCruiseFormData,
   emptyCruiseForm,
@@ -157,6 +169,7 @@ export default function PackageTemplateModal({
   const [sForm, setSForm] = useState<SightseeingFormState>(() => emptySightseeingForm());
   const [tForm, setTForm] = useState<TourFormState>(() => emptyTourForm());
   const [tpForm, setTpForm] = useState<TourPackageFormState>(() => emptyTourPackageForm());
+  const [hForm, setHForm] = useState<HolidayPackageFormState>(() => emptyHolidayPackageForm());
   const [cForm, setCForm] = useState<CruiseFormState>(() => emptyCruiseForm());
   const [xpForm, setXpForm] = useState<TaxiPackageFormState>(() => emptyTaxiPackageForm());
 
@@ -180,6 +193,9 @@ export default function PackageTemplateModal({
   function setTpField<K extends keyof TourPackageFormState>(key: K, value: TourPackageFormState[K]) {
     setTpForm((c) => ({ ...c, [key]: value }));
   }
+  function setHField<K extends keyof HolidayPackageFormState>(key: K, value: HolidayPackageFormState[K]) {
+    setHForm((c) => ({ ...c, [key]: value }));
+  }
   function setCField<K extends keyof CruiseFormState>(key: K, value: CruiseFormState[K]) {
     setCForm((c) => ({ ...c, [key]: value }));
   }
@@ -200,6 +216,7 @@ export default function PackageTemplateModal({
     setSForm(emptySightseeingForm());
     setTForm(emptyTourForm());
     setTpForm(emptyTourPackageForm());
+    setHForm(emptyHolidayPackageForm());
     setCForm(emptyCruiseForm());
     setXpForm(emptyTaxiPackageForm());
   }
@@ -254,10 +271,10 @@ export default function PackageTemplateModal({
       if (err) { toast.push({ title: "Please review the tour", description: err, tone: "warn" }); return; }
       const payload = jsonPayload(buildTourFormData(tForm, { images: [] }), "payload");
       delete payload.status;
-      const { title: t, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc, basedIn, coversCities, durationDays, durationNights, ...specs } = payload;
+      const { title: t, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc, basedIn, coversCities, durationDays, durationNights, state: st, ...specs } = payload;
       await submitData({
         title: t, kind, scope, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc,
-        currency: tForm.currency,
+        currency: tForm.currency, state: st,
         route: { origin: basedIn, destinations: coversCities, durationDays, durationNights },
         specs,
       }, "Tour listing created");
@@ -269,13 +286,13 @@ export default function PackageTemplateModal({
       if (err) { toast.push({ title: "Please review the tour package", description: err, tone: "warn" }); return; }
       const payload = jsonPayload(buildTourPackageFormData(tpForm, { thumbnail: null, images: [] }), "payload");
       delete payload.status;
-      const { title: t, description: d, highlights: h, tags: tg, route, customInclusions, exclusions: exc, pricing, ...rest } = payload;
+      const { title: t, description: d, highlights: h, tags: tg, route, customInclusions, exclusions: exc, pricing, state: st, ...rest } = payload;
       delete rest.includes; // partner's own hotels/taxi/tours — not applicable pre-partner
       const pr = (pricing ?? {}) as Record<string, unknown>;
       await submitData({
         title: t, kind, scope, description: d, highlights: h, tags: tg,
         inclusions: customInclusions, exclusions: exc,
-        currency: pr.currency, referencePrice: pr.basePrice,
+        currency: pr.currency, referencePrice: pr.basePrice, state: st,
         route,
         specs: {
           packageType: rest.packageType, difficultyLevel: rest.difficultyLevel,
@@ -284,6 +301,32 @@ export default function PackageTemplateModal({
           pricing: { basePrice: pr.basePrice, perPerson: pr.perPerson, maxPersons: pr.maxPersons, childPrice: pr.childPrice, infantPrice: pr.infantPrice, extraPersonCharge: pr.extraPersonCharge, singleSupplement: pr.singleSupplement },
         },
       }, "Tour package listing created");
+      return;
+    }
+
+    if (kind === "holiday") {
+      const err = validateHolidayPackageForm(hForm);
+      if (err) { toast.push({ title: "Please review the holiday package", description: err, tone: "warn" }); return; }
+      const payload = jsonPayload(buildHolidayPackageFormData(hForm, { thumbnail: null, images: [] }), "payload");
+      delete payload.status;
+      const { title: t, description: d, highlights: h, tags: tg, route, customInclusions, exclusions: exc, currency: cur, roomTiers, state: st, ...rest } = payload;
+      delete rest.includes; // partner's own hotels/taxi/tours — not applicable pre-partner
+      const tiers = (roomTiers ?? []) as { price: number }[];
+      const referencePrice = tiers.length > 0 ? Math.min(...tiers.map((t2) => t2.price)) : undefined;
+      const hr = (route ?? {}) as Record<string, unknown>;
+      await submitData({
+        title: t, kind, scope, description: d, highlights: h, tags: tg,
+        inclusions: customInclusions, exclusions: exc,
+        currency: cur, referencePrice, state: st,
+        route,
+        specs: {
+          // origin/destination pins ride in specs (Package.route is a fixed shape)
+          // so the detail page can draw the route start → stops → end.
+          packageType: rest.packageType, itinerary: rest.itinerary, departures: rest.departures, videoUrl: rest.videoUrl,
+          discounts: rest.discounts, roomTiers, singleSupplement: rest.singleSupplement,
+          originLocation: hr.originLocation, destinationLocation: hr.destinationLocation,
+        },
+      }, "Holiday package listing created");
       return;
     }
 
@@ -310,15 +353,17 @@ export default function PackageTemplateModal({
       const payload = jsonPayload(buildTaxiPackageFormData(xpForm, { thumbnail: null, images: [] }), "payload");
       delete payload.status;
       delete payload.vehicle; // partner's own vehicle listing — not applicable pre-partner
-      const { title: t, description: d, highlights: h, tags: tg, route, itinerary, pricing, inclusions: inc, exclusions: exc, startDates, blackoutDates, advanceBookingDays } = payload;
+      const { title: t, description: d, highlights: h, tags: tg, route, itinerary, pricing, inclusions: inc, exclusions: exc, startDates, blackoutDates, advanceBookingDays, state: st } = payload;
       const r = (route ?? {}) as Record<string, unknown>;
       const pr = (pricing ?? {}) as Record<string, unknown>;
       await submitData({
         title: t, kind, scope, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc,
-        currency: pr.currency, referencePrice: pr.basePrice,
+        currency: pr.currency, referencePrice: pr.basePrice, state: st,
         route: { origin: r.origin, destinations: r.destinations, durationDays: r.durationDays, durationNights: r.durationNights },
         specs: {
-          totalKm: r.totalKm, itinerary, startDates, blackoutDates, advanceBookingDays,
+          // originLocation rides in specs (Package.route is a fixed shape) so the
+          // detail page can start the route map at the origin pin.
+          totalKm: r.totalKm, originLocation: r.originLocation, itinerary, startDates, blackoutDates, advanceBookingDays,
           pricing: { basePrice: pr.basePrice, maxPersons: pr.maxPersons, extraPersonCharge: pr.extraPersonCharge, tollsIncluded: pr.tollsIncluded, driverAllowance: pr.driverAllowance, fuelIncluded: pr.fuelIncluded },
         },
       }, "Taxi package listing created");
@@ -326,7 +371,7 @@ export default function PackageTemplateModal({
     }
 
     // Generic path: kinds driven by the flat PACKAGE_KIND_SPECS config (taxi,
-    // transfer, self_drive, islandhopper, visa) and holiday (no vertical fields).
+    // transfer, self_drive, islandhopper, visa, bundle) — no vertical fields.
     if (!title.trim()) { toast.push({ title: "Enter a title", tone: "warn" }); return; }
     await submitData({
       title: title.trim(), kind, scope,
@@ -363,6 +408,10 @@ export default function PackageTemplateModal({
           <TourPackageFields tpForm={tpForm} setTpForm={setTpForm} setTpField={setTpField} />
         )}
 
+        {kind === "holiday" && (
+          <HolidayPackageFields hForm={hForm} setHForm={setHForm} setHField={setHField} />
+        )}
+
         {kind === "cruise" && (
           <CruiseFields cForm={cForm} setCForm={setCForm} setCField={setCField} />
         )}
@@ -371,7 +420,7 @@ export default function PackageTemplateModal({
           <TaxiPackageFields xpForm={xpForm} setXpForm={setXpForm} setXpField={setXpField} />
         )}
 
-        {kind !== "sightseeing" && kind !== "tour" && kind !== "tour_package" && kind !== "cruise" && kind !== "taxi_package" && (
+        {kind !== "sightseeing" && kind !== "tour" && kind !== "tour_package" && kind !== "holiday" && kind !== "cruise" && kind !== "taxi_package" && (
           <>
             <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Delhi to Ladakh 3N/4D" />
             <Input label="Destinations (comma-separated)" value={destinations} onChange={(e) => setDestinations(e.target.value)} placeholder="Leh, Nubra, Pangong" />
@@ -592,6 +641,7 @@ function TourFields({
       <FieldSection title="Location & Duration">
         <Input label="Based in (city)" value={tForm.basedIn} onChange={(e) => setTField("basedIn", e.target.value)} />
         <Input label="Covers cities (comma separated)" value={tForm.coversCities} onChange={(e) => setTField("coversCities", e.target.value)} />
+        <StateSelect value={tForm.state} onChange={(v) => setTField("state", v)} />
         <LocationPickerField
           lat={tForm.latitude} lng={tForm.longitude}
           onChange={(v) => setTForm((c) => ({ ...c, latitude: v.lat, longitude: v.lng }))}
@@ -607,11 +657,11 @@ function TourFields({
         <RowList<TourItineraryRow>
           label="Stops" rows={tForm.itinerary} onChange={(rows) => setTForm((c) => ({ ...c, itinerary: rows }))}
           newRow={() => ({ time: "", title: "", description: "", location: "", locationLat: "", locationLng: "" })}
-          renderRow={(r, patch) => (<>
+          renderRow={(r, patch, idx) => (<>
             <Input label="Time" value={r.time} onChange={(e) => patch({ time: e.target.value })} placeholder="09:00" />
             <Input label="Title" value={r.title} onChange={(e) => patch({ title: e.target.value })} />
             <Input label="Location" value={r.location} onChange={(e) => patch({ location: e.target.value })} />
-            <Input label="Description" value={r.description} onChange={(e) => patch({ description: e.target.value })} />
+            <ItineraryDescriptionField id={`admin-tour-it-desc-${idx}`} value={r.description} onChange={(v) => patch({ description: v })} />
             <LocationPickerField
               lat={r.locationLat} lng={r.locationLng} address={r.location}
               onChange={(v) => patch({ locationLat: v.lat, locationLng: v.lng, location: v.address ?? r.location })}
@@ -699,6 +749,7 @@ function TourPackageFields({
       <FieldSection title="Route">
         <Input label="Origin" value={tpForm.origin} onChange={(e) => setTpField("origin", e.target.value)} />
         <Input label="Destinations (comma separated)" value={tpForm.destinations} onChange={(e) => setTpField("destinations", e.target.value)} />
+        <StateSelect value={tpForm.state} onChange={(v) => setTpField("state", v)} />
         <Input label="Duration (days)" type="number" value={tpForm.durationDays} onChange={(e) => setTpField("durationDays", e.target.value)} />
         <Input label="Duration (nights)" type="number" value={tpForm.durationNights} onChange={(e) => setTpField("durationNights", e.target.value)} />
       </FieldSection>
@@ -707,10 +758,10 @@ function TourPackageFields({
         <RowList<TourPkgItineraryRow>
           label="Days" rows={tpForm.itinerary} onChange={(rows) => setTpForm((c) => ({ ...c, itinerary: rows }))}
           newRow={() => emptyTourPkgItineraryRow(tpForm.itinerary.length + 1)}
-          renderRow={(r, patch) => (<>
+          renderRow={(r, patch, idx) => (<>
             <Input label="Day" type="number" value={r.day} onChange={(e) => patch({ day: e.target.value })} />
             <Input label="Title" value={r.title} onChange={(e) => patch({ title: e.target.value })} />
-            <div className="sm:col-span-2"><Textarea label="Description" value={r.description} onChange={(e) => patch({ description: e.target.value })} rows={2} /></div>
+            <ItineraryDescriptionField id={`admin-tp-it-desc-${idx}`} value={r.description} onChange={(v) => patch({ description: v })} />
             <Input label="Accommodation" value={r.accommodation} onChange={(e) => patch({ accommodation: e.target.value })} />
             <Input label="Activities (comma separated)" value={r.activities} onChange={(e) => patch({ activities: e.target.value })} />
             <div className="sm:col-span-2 flex gap-4">
@@ -769,6 +820,134 @@ function TourPackageFields({
         <div className="sm:col-span-2"><Textarea label="Custom inclusions (comma or newline)" value={tpForm.customInclusions} onChange={(e) => setTpField("customInclusions", e.target.value)} rows={2} /></div>
         <div className="sm:col-span-2"><Textarea label="Exclusions (comma or newline)" value={tpForm.exclusions} onChange={(e) => setTpField("exclusions", e.target.value)} rows={2} /></div>
         <Input label="Video URL" value={tpForm.videoUrl} onChange={(e) => setTpField("videoUrl", e.target.value)} />
+      </FieldSection>
+    </>
+  );
+}
+
+// ── Holiday Package ────────────────────────────────────────────────────────
+// Same shape as TourPackageFields — the only real difference is room-tier
+// pricing (Standard/Deluxe/Luxury × meal plan) instead of one flat price.
+function HolidayPackageFields({
+  hForm, setHForm, setHField,
+}: {
+  hForm: HolidayPackageFormState;
+  setHForm: (fn: (c: HolidayPackageFormState) => HolidayPackageFormState) => void;
+  setHField: <K extends keyof HolidayPackageFormState>(key: K, value: HolidayPackageFormState[K]) => void;
+}) {
+  return (
+    <>
+      <FieldSection title="Basics">
+        <Input label="Title" value={hForm.title} onChange={(e) => setHField("title", e.target.value)} placeholder="Goa Beach Holiday 4D/5N" />
+        <Select label="Package type" value={hForm.packageType} onChange={(e) => setHField("packageType", e.target.value)}>
+          {PACKAGE_TYPES.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}
+        </Select>
+        <Input label="Tags (comma separated)" value={hForm.tags} onChange={(e) => setHField("tags", e.target.value)} />
+        <div className="sm:col-span-2"><Textarea label="Description" value={hForm.description} onChange={(e) => setHField("description", e.target.value)} rows={3} /></div>
+        <div className="sm:col-span-2"><Textarea label="Highlights (comma or newline)" value={hForm.highlights} onChange={(e) => setHField("highlights", e.target.value)} rows={2} /></div>
+      </FieldSection>
+
+      <FieldSection title="Route">
+        <Input label="Origin" value={hForm.origin} onChange={(e) => setHField("origin", e.target.value)} />
+        <Input label="Destinations (comma separated)" value={hForm.destinations} onChange={(e) => setHField("destinations", e.target.value)} />
+        <div className="sm:col-span-2">
+          <p className="mb-1 text-[13px] font-medium text-ink-soft">Origin location (start of the route map)</p>
+          <LocationPickerField
+            lat={hForm.originLat} lng={hForm.originLng} address={hForm.originAddress}
+            onChange={(v) => setHForm((c) => ({ ...c, originLat: v.lat, originLng: v.lng, originAddress: v.address ?? c.originAddress }))}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <p className="mb-1 text-[13px] font-medium text-ink-soft">Destination location (end of the route map)</p>
+          <LocationPickerField
+            lat={hForm.destinationLat} lng={hForm.destinationLng} address={hForm.destinationAddress}
+            onChange={(v) => setHForm((c) => ({ ...c, destinationLat: v.lat, destinationLng: v.lng, destinationAddress: v.address ?? c.destinationAddress }))}
+          />
+        </div>
+        <StateSelect value={hForm.state} onChange={(v) => setHField("state", v)} />
+        <Input label="Duration (days)" type="number" value={hForm.durationDays} onChange={(e) => setHField("durationDays", e.target.value)} />
+        <Input label="Duration (nights)" type="number" value={hForm.durationNights} onChange={(e) => setHField("durationNights", e.target.value)} />
+      </FieldSection>
+
+      <FieldSection title="Itinerary">
+        <RowList<TourPkgItineraryRow>
+          label="Days" rows={hForm.itinerary} onChange={(rows) => setHForm((c) => ({ ...c, itinerary: rows }))}
+          newRow={() => emptyTourPkgItineraryRow(hForm.itinerary.length + 1)}
+          renderRow={(r, patch, idx) => (<>
+            <Input label="Day" type="number" value={r.day} onChange={(e) => patch({ day: e.target.value })} />
+            <Input label="Title" value={r.title} onChange={(e) => patch({ title: e.target.value })} />
+            <ItineraryDescriptionField id={`admin-hp-it-desc-${idx}`} value={r.description} onChange={(v) => patch({ description: v })} />
+            <Input label="Accommodation" value={r.accommodation} onChange={(e) => patch({ accommodation: e.target.value })} />
+            <Input label="Activities (comma separated)" value={r.activities} onChange={(e) => patch({ activities: e.target.value })} />
+            <div className="sm:col-span-2 flex gap-4">
+              <Checkbox label="Breakfast" checked={r.breakfast} onChange={(e) => patch({ breakfast: e.target.checked })} />
+              <Checkbox label="Lunch" checked={r.lunch} onChange={(e) => patch({ lunch: e.target.checked })} />
+              <Checkbox label="Dinner" checked={r.dinner} onChange={(e) => patch({ dinner: e.target.checked })} />
+            </div>
+            <LocationPickerField
+              lat={r.locationLat} lng={r.locationLng} address={r.locationAddress}
+              onChange={(v) => patch({ locationLat: v.lat, locationLng: v.lng, locationAddress: v.address })}
+            />
+          </>)}
+        />
+      </FieldSection>
+
+      <FieldSection title="Room tiers">
+        <p className="text-[13px] text-ink-muted sm:col-span-2">
+          Price this package by room category, the way MakeMyTrip/Yatra do — add one row per tier with its own meal plan and price.
+        </p>
+        <RowList<RoomTierRow>
+          label="Room tiers" rows={hForm.roomTiers} onChange={(rows) => setHForm((c) => ({ ...c, roomTiers: rows }))}
+          newRow={emptyRoomTierRow}
+          renderRow={(r, patch) => (<>
+            <Select label="Room type" value={r.roomType} onChange={(e) => patch({ roomType: e.target.value })}>
+              {HOLIDAY_ROOM_TYPES.map((t) => <option key={t} value={t}>{titleCase(t)}</option>)}
+            </Select>
+            <Select label="Meal plan" value={r.mealPlan} onChange={(e) => patch({ mealPlan: e.target.value })}>
+              {HOLIDAY_MEAL_PLANS.map((m) => <option key={m} value={m}>{titleCase(m)}</option>)}
+            </Select>
+            <Input label="Price per person" type="number" value={r.price} onChange={(e) => patch({ price: e.target.value })} />
+            <Input label="Max occupancy" type="number" value={r.maxOccupancy} onChange={(e) => patch({ maxOccupancy: e.target.value })} />
+            <Input label="Child price (optional)" type="number" value={r.childPrice} onChange={(e) => patch({ childPrice: e.target.value })} />
+            <Input label="Extra bed price (optional)" type="number" value={r.extraBedPrice} onChange={(e) => patch({ extraBedPrice: e.target.value })} />
+          </>)}
+        />
+        <Select label="Currency" value={hForm.currency} onChange={(e) => setHField("currency", e.target.value)}>
+          {PACKAGE_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </Select>
+        <Input label="Single supplement (optional)" type="number" value={hForm.singleSupplement} onChange={(e) => setHField("singleSupplement", e.target.value)} />
+      </FieldSection>
+
+      <FieldSection title="Discounts">
+        <RowList<PackageDiscountRow>
+          label="Discounts" rows={hForm.discounts} onChange={(rows) => setHForm((c) => ({ ...c, discounts: rows }))}
+          newRow={() => ({ label: "", percent: "", validUntil: "" })}
+          renderRow={(r, patch) => (<>
+            <Input label="Label" value={r.label} onChange={(e) => patch({ label: e.target.value })} placeholder="Early bird" />
+            <Input label="Percent" type="number" value={r.percent} onChange={(e) => patch({ percent: e.target.value })} />
+            <Input label="Valid until" type="date" value={r.validUntil} onChange={(e) => patch({ validUntil: e.target.value })} />
+          </>)}
+        />
+      </FieldSection>
+
+      <FieldSection title="Departures">
+        <RowList<PackageDepartureRow>
+          label="Departures" rows={hForm.departures} onChange={(rows) => setHForm((c) => ({ ...c, departures: rows }))}
+          newRow={() => ({ date: "", seatsTotal: "", status: "open" })}
+          renderRow={(r, patch) => (<>
+            <Input label="Date" type="date" value={r.date} onChange={(e) => patch({ date: e.target.value })} />
+            <Input label="Seats total" type="number" value={r.seatsTotal} onChange={(e) => patch({ seatsTotal: e.target.value })} />
+            <Select label="Status" value={r.status} onChange={(e) => patch({ status: e.target.value })}>
+              {DEPARTURE_STATUS.map((s) => <option key={s} value={s}>{titleCase(s)}</option>)}
+            </Select>
+          </>)}
+        />
+      </FieldSection>
+
+      <FieldSection title="Inclusions & Media">
+        <div className="sm:col-span-2"><Textarea label="Custom inclusions (comma or newline)" value={hForm.customInclusions} onChange={(e) => setHField("customInclusions", e.target.value)} rows={2} /></div>
+        <div className="sm:col-span-2"><Textarea label="Exclusions (comma or newline)" value={hForm.exclusions} onChange={(e) => setHField("exclusions", e.target.value)} rows={2} /></div>
+        <Input label="Video URL" value={hForm.videoUrl} onChange={(e) => setHField("videoUrl", e.target.value)} />
       </FieldSection>
     </>
   );
@@ -891,6 +1070,14 @@ function TaxiPackageFields({
       <FieldSection title="Route">
         <Input label="Origin" value={xpForm.origin} onChange={(e) => setXpField("origin", e.target.value)} />
         <Input label="Destinations (comma separated)" value={xpForm.destinations} onChange={(e) => setXpField("destinations", e.target.value)} />
+        <div className="sm:col-span-2">
+          <p className="mb-1 text-[13px] font-medium text-ink-soft">Origin location (start of the route map)</p>
+          <LocationPickerField
+            lat={xpForm.originLat} lng={xpForm.originLng} address={xpForm.originAddress}
+            onChange={(v) => setXpForm((c) => ({ ...c, originLat: v.lat, originLng: v.lng, originAddress: v.address ?? c.originAddress }))}
+          />
+        </div>
+        <StateSelect value={xpForm.state} onChange={(v) => setXpField("state", v)} />
         <Input label="Total distance (km)" type="number" value={xpForm.totalKm} onChange={(e) => setXpField("totalKm", e.target.value)} />
         <Input label="Duration (days)" type="number" value={xpForm.durationDays} onChange={(e) => setXpField("durationDays", e.target.value)} />
         <Input label="Duration (nights)" type="number" value={xpForm.durationNights} onChange={(e) => setXpField("durationNights", e.target.value)} />
@@ -900,13 +1087,17 @@ function TaxiPackageFields({
         <RowList<TaxiPackageItineraryRow>
           label="Days" rows={xpForm.itinerary} onChange={(rows) => setXpForm((c) => ({ ...c, itinerary: rows }))}
           newRow={() => emptyTaxiPkgItineraryRow(xpForm.itinerary.length + 1)}
-          renderRow={(r, patch) => (<>
+          renderRow={(r, patch, idx) => (<>
             <Input label="Day" type="number" value={r.day} onChange={(e) => patch({ day: e.target.value })} />
             <Input label="Title" value={r.title} onChange={(e) => patch({ title: e.target.value })} />
-            <div className="sm:col-span-2"><Textarea label="Description" value={r.description} onChange={(e) => patch({ description: e.target.value })} rows={2} /></div>
+            <ItineraryDescriptionField id={`admin-xp-it-desc-${idx}`} value={r.description} onChange={(v) => patch({ description: v })} />
             <Input label="Activities (comma separated)" value={r.activities} onChange={(e) => patch({ activities: e.target.value })} />
             <Input label="Distance (km)" type="number" value={r.distance} onChange={(e) => patch({ distance: e.target.value })} />
             <Input label="Overnight stop" value={r.overnight} onChange={(e) => patch({ overnight: e.target.value })} />
+            <LocationPickerField
+              lat={r.locationLat} lng={r.locationLng} address={r.locationAddress}
+              onChange={(v) => patch({ locationLat: v.lat, locationLng: v.lng, locationAddress: v.address })}
+            />
           </>)}
         />
       </FieldSection>
@@ -926,8 +1117,8 @@ function TaxiPackageFields({
       <FieldSection title="Inclusions & Availability">
         <div className="sm:col-span-2"><Textarea label="Inclusions (comma or newline)" value={xpForm.inclusions} onChange={(e) => setXpField("inclusions", e.target.value)} rows={2} /></div>
         <div className="sm:col-span-2"><Textarea label="Exclusions (comma or newline)" value={xpForm.exclusions} onChange={(e) => setXpField("exclusions", e.target.value)} rows={2} /></div>
-        <Input label="Start dates (comma separated)" value={xpForm.startDates} onChange={(e) => setXpField("startDates", e.target.value)} />
-        <Input label="Blackout dates (comma separated)" value={xpForm.blackoutDates} onChange={(e) => setXpField("blackoutDates", e.target.value)} />
+        <Input label="Start dates (comma separated)" placeholder="mm/dd/yyyy, mm/dd/yyyy" value={xpForm.startDates} onChange={(e) => setXpField("startDates", e.target.value)} />
+        <Input label="Blackout dates (comma separated)" placeholder="mm/dd/yyyy, mm/dd/yyyy" value={xpForm.blackoutDates} onChange={(e) => setXpField("blackoutDates", e.target.value)} />
         <Input label="Advance booking (days)" type="number" value={xpForm.advanceBookingDays} onChange={(e) => setXpField("advanceBookingDays", e.target.value)} />
       </FieldSection>
     </>
