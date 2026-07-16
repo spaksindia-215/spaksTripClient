@@ -12,7 +12,7 @@ import CitySelector from "./CitySelector";
 import RoomsGuestsPopover from "./RoomsGuestsPopover";
 import NationalitySelector from "./NationalitySelector";
 
-export default function HotelSearchForm() {
+export default function HotelSearchForm({ defaultStars }: { defaultStars?: number[] }) {
   const router = useRouter();
   const toast = useToast();
   const {
@@ -73,6 +73,9 @@ export default function HotelSearchForm() {
     });
     if (childrenAges.length > 0) {
       params.set("childrenAges", childrenAges.join(","));
+    }
+    if (defaultStars && defaultStars.length > 0) {
+      params.set("stars", defaultStars.join(","));
     }
 
     if (destination.kind === "country") {

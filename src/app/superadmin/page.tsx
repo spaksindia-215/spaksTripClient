@@ -28,6 +28,7 @@ import PackageTemplateModal from "@/components/superadmin/PackageTemplateModal";
 const CONTROLLABLE_NAV_ITEMS: Array<{ key: string; label: string }> = [
   { key: "nav.flight", label: "Flight" },
   { key: "Hotel", label: "Hotel" },
+  { key: "Premium Hotels", label: "Premium Hotels" },
   { key: "nav.holiday_packages", label: "Holiday Packages" },
   { key: "Packages", label: "Packages" },
   { key: "nav.accommodation", label: "Accommodation" },

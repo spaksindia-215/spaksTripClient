@@ -31,6 +31,8 @@ function normalizeAriaText(input: string) {
 const NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.flight", href: "/flight" },
   { labelKey: "Hotel", href: "/hotel" },
+  // Same TBO hotel search, but the results open with 4 & 5 star pre-selected.
+  { labelKey: "Premium Hotels", href: "/premium-hotels" },
   // §3.1 — Holiday Packages are their own standalone type, split National/International,
   // built by linking existing Tour/Taxi Packages (see Packages group below).
   {
@@ -222,12 +224,13 @@ function NavIcon({ labelKey, className }: { labelKey: string; className?: string
           <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
         </svg>
       );
-    case "Premium Hotel":
+    case "Premium Hotels":
       return (
         <svg {...common}>
-          <path d="M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16" />
+          <path d="M4 21V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13" />
           <path d="M4 21h16" />
-          <path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2" />
+          <path d="M9 11h2M13 11h2M9 15h2M13 15h2" />
+          <path d="M12 1.5l.9 1.8 2 .3-1.45 1.4.35 2-1.8-.95-1.8.95.35-2L9.1 3.6l2-.3z" />
         </svg>
       );
 

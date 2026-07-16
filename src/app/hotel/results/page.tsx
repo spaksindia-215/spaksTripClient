@@ -57,7 +57,17 @@ function HotelResultsInner() {
 
   const cityObj = CITIES.find((c) => c.code === cityCode);
 
-  const [filters, setFilters] = useState<FiltersType>({});
+  // Pre-select star-rating chips when the search came from Premium Hotels
+  // (e.g. ?stars=4,5). Users can still toggle them off like any other filter.
+  const [filters, setFilters] = useState<FiltersType>(() => {
+    const raw = sp.get("stars");
+    if (!raw) return {};
+    const stars = raw
+      .split(",")
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n >= 1 && n <= 5);
+    return stars.length > 0 ? { stars } : {};
+  });
   const [sort, setSort] = useState<HotelSortBy>("price");
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
