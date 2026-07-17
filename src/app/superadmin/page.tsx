@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Building2, Car, Compass, Palmtree, Ship, Camera, Bus, Waves, FileText,
+  Pause, Play, Clock, Trash2, Check, X as XIcon,
+} from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -94,6 +98,32 @@ const LISTING_STATUS_TONE: Record<string, "neutral" | "success" | "warn" | "dang
   active: "success", draft: "neutral", pending: "warn", paused: "warn", suspended: "danger",
 };
 const LISTING_STATUS_FILTERS = ["all", "pending", "active", "draft", "paused", "suspended"] as const;
+
+// Icon tile shown in place of a thumbnail when a listing has no photo — tones
+// reuse the same brand/accent/success/warn/info/neutral scale as Badge.
+const ICON_TILE_TONE: Record<string, string> = {
+  neutral: "bg-surface-sunken text-ink-soft",
+  brand:   "bg-brand-50 text-brand-700",
+  accent:  "bg-accent-50 text-accent-700",
+  success: "bg-success-50 text-success-700",
+  warn:    "bg-warn-50 text-warn-600",
+  danger:  "bg-danger-50 text-danger-600",
+  info:    "bg-info-50 text-info-500",
+};
+const LISTING_ICON: Record<string, { Icon: typeof Building2; tone: keyof typeof ICON_TILE_TONE }> = {
+  hotel: { Icon: Building2, tone: "brand" },
+  taxi: { Icon: Car, tone: "accent" },
+  taxi_package: { Icon: Car, tone: "accent" },
+  tour: { Icon: Compass, tone: "success" },
+  tour_package: { Icon: Compass, tone: "success" },
+  holiday: { Icon: Palmtree, tone: "success" },
+  cruise: { Icon: Ship, tone: "info" },
+  sightseeing: { Icon: Camera, tone: "warn" },
+  transfer: { Icon: Bus, tone: "info" },
+  self_drive: { Icon: Car, tone: "brand" },
+  islandhopper: { Icon: Waves, tone: "info" },
+  visa: { Icon: FileText, tone: "neutral" },
+};
 
 // "Partner Listings" unifies two structurally separate collections: typed
 // partner-resource docs (a real TaxiListing/TourPackage/etc a partner submitted
@@ -820,22 +850,28 @@ export default function SuperadminPage() {
           </section>
         ) : tab === "listings" ? (
           <section className="mt-6">
+            <div className="mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F6A441]">
+                Marketplace Administration
+              </p>
+              <h2 className="mt-1 text-[26px] font-extrabold text-[#0E1E3A]">Partner Listings</h2>
+            </div>
             <Tabs
               value={listingType}
               onChange={(value) => setListingType(value)}
               items={LISTING_TYPE_FILTERS}
-              variant="segmented"
+              variant="pills"
             />
             {/* Status filter + counts — full lifecycle management for every vertical. */}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
+              <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-surface-muted p-1">
                 {LISTING_STATUS_FILTERS.map((s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => setListingStatus(s)}
                     className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold capitalize transition-colors ${
-                      listingStatus === s ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-border-soft"
+                      listingStatus === s ? "bg-brand-600 text-white shadow-(--shadow-xs)" : "text-ink-soft hover:text-ink"
                     }`}
                   >
                     {s}
@@ -843,11 +879,11 @@ export default function SuperadminPage() {
                 ))}
               </div>
               <div className="flex items-center gap-3">
-                <div className="rounded-xl border border-border-soft bg-surface-muted px-4 py-2 text-center">
+                <div className="rounded-xl border border-border-soft bg-white px-4 py-2 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">Shown</p>
                   <p className="text-[16px] font-extrabold text-ink">{listings.length}</p>
                 </div>
-                <div className="rounded-xl border border-border-soft bg-surface-muted px-4 py-2 text-center">
+                <div className="rounded-xl border border-border-soft bg-white px-4 py-2 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">Pending</p>
                   <p className="text-[16px] font-extrabold text-accent-600">{listings.filter((l) => l.status === "pending").length}</p>
                 </div>
@@ -865,6 +901,8 @@ export default function SuperadminPage() {
                 <div className="flex flex-col gap-3">
                   {listings.map((listing) => {
                     const partner = listing.partner;
+                    const iconMeta = LISTING_ICON[listing.type] ?? { Icon: FileText, tone: "neutral" as const };
+                    const ListingIcon = iconMeta.Icon;
                     return (
                       <article
                         key={`${listing.source}-${listing.type}-${listing.id}`}
@@ -876,54 +914,54 @@ export default function SuperadminPage() {
                             <img
                               src={listing.thumbnail}
                               alt={listing.title}
-                              className="h-16 w-20 shrink-0 rounded-lg object-cover"
+                              className="h-14 w-14 shrink-0 rounded-xl object-cover"
                             />
                           ) : (
-                            <div className="grid h-16 w-20 shrink-0 place-items-center rounded-lg bg-surface-muted text-[11px] text-ink-subtle">
-                              No image
+                            <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl ${ICON_TILE_TONE[iconMeta.tone]}`}>
+                              <ListingIcon className="h-6 w-6" strokeWidth={1.75} />
                             </div>
                           )}
                           <div className="space-y-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge tone={LISTING_STATUS_TONE[listing.status] ?? "neutral"} size="sm">{listing.status}</Badge>
-                              <span className="text-[15px] font-semibold text-ink">{listing.title}</span>
-                              <Badge tone="brand" size="sm">{listing.typeLabel}</Badge>
+                              <span className="text-[15px] font-bold text-ink">{listing.title}</span>
+                              <Badge tone={LISTING_STATUS_TONE[listing.status] ?? "neutral"} size="sm" className="uppercase">{listing.status}</Badge>
+                              <Badge tone="neutral" size="sm">{listing.typeLabel}</Badge>
                             </div>
                             {listing.subtitle && (
                               <p className="text-[13px] text-ink-muted">{listing.subtitle}</p>
                             )}
-                            <p className="text-[12px] text-ink-subtle">
-                              {partner ? `By ${partner.name ?? partner.email ?? "partner"}` : ""}
-                            </p>
+                            {partner && (
+                              <p className="text-[12px] text-ink-subtle">By {partner.name ?? partner.email ?? "partner"}</p>
+                            )}
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
                           {listing.status === "pending" && (
                             <>
-                              <Button type="button" variant="primary" size="sm" loading={actionLoading} onClick={() => approveListing(listing)}>
+                              <Button type="button" variant="primary" size="sm" leading={<Check className="h-3.5 w-3.5" />} loading={actionLoading} onClick={() => approveListing(listing)}>
                                 Approve
                               </Button>
-                              <Button type="button" variant="secondary" size="sm" loading={actionLoading} onClick={() => rejectListing(listing)}>
+                              <Button type="button" variant="outline" size="sm" leading={<XIcon className="h-3.5 w-3.5" />} loading={actionLoading} onClick={() => rejectListing(listing)}>
                                 Reject
                               </Button>
                             </>
                           )}
                           {listing.status === "active" && (
-                            <Button type="button" variant="secondary" size="sm" loading={actionLoading} onClick={() => setListingStatusAction(listing, "paused")}>
+                            <Button type="button" variant="outline" size="sm" leading={<Pause className="h-3.5 w-3.5" />} loading={actionLoading} onClick={() => setListingStatusAction(listing, "paused")}>
                               Pause
                             </Button>
                           )}
                           {(listing.status === "paused" || listing.status === "draft" || listing.status === "suspended") && (
-                            <Button type="button" variant="primary" size="sm" loading={actionLoading} onClick={() => setListingStatusAction(listing, "active")}>
+                            <Button type="button" variant="primary" size="sm" leading={<Play className="h-3.5 w-3.5" />} loading={actionLoading} onClick={() => setListingStatusAction(listing, "active")}>
                               Activate
                             </Button>
                           )}
                           {listing.status !== "suspended" && listing.status !== "pending" && (
-                            <Button type="button" variant="secondary" size="sm" loading={actionLoading} onClick={() => setListingStatusAction(listing, "suspended")}>
+                            <Button type="button" variant="outline" size="sm" leading={<Clock className="h-3.5 w-3.5" />} loading={actionLoading} onClick={() => setListingStatusAction(listing, "suspended")}>
                               Suspend
                             </Button>
                           )}
-                          <Button type="button" variant="danger" size="sm" loading={actionLoading} onClick={() => deleteListing(listing)}>
+                          <Button type="button" variant="danger" size="sm" leading={<Trash2 className="h-3.5 w-3.5" />} loading={actionLoading} onClick={() => deleteListing(listing)}>
                             Delete
                           </Button>
                         </div>

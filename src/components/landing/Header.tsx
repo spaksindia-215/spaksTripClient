@@ -702,7 +702,84 @@ export default function Header() {
             </motion.a>
           </div>
         </div>
-      </div>
+        </div>
+
+        <div className="hidden px-3 pt-2 sm:px-6 lg:block">
+          {/* Translucent, rounded shell enclosing just the icon nav row. */}
+          <div className="mx-auto max-w-[78rem] rounded-[28px] mb-2 border border-blue-500/60 bg-blue-300/70 px-3 py-1 shadow-[0_16px_50px_-18px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+          <nav className="flex-1">
+            <ul className="flex flex-wrap items-center justify-center gap-1 text-ink">
+              {visibleNavItems.map((item) => (
+                <motion.li
+                  key={item.labelKey}
+                  className={cn(
+                    "group/nav relative inline-flex",
+                    item.menu && "z-0 hover:z-20",
+                  )}
+                  initial="rest"
+                  animate={item.menu && hoveredDesktopMenu === item.labelKey ? "hover" : "rest"}
+                  whileTap={{ scale: 0.97 }}
+                  variants={{ rest: { scale: 1 }, hover: { scale: 1.04 } }}
+                  transition={{ type: "spring", stiffness: 400, damping: 26 }}
+                  onMouseLeave={() => {
+                    if (item.menu) {
+                      setHoveredDesktopMenu((current) =>
+                        current === item.labelKey ? null : current,
+                      );
+                    }
+                  }}
+                  onBlur={(event) => {
+                    if (item.menu && !event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      setHoveredDesktopMenu((current) =>
+                        current === item.labelKey ? null : current,
+                      );
+                    }
+                  }}
+                >
+                  <Link
+                    href={item.href}
+                    onMouseEnter={() => {
+                      if (item.menu) {
+                        setHoveredDesktopMenu(item.labelKey);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (item.menu) {
+                        setHoveredDesktopMenu(item.labelKey);
+                      }
+                    }}
+                    className="relative inline-flex w-[72px] flex-col items-center justify-center gap-1 rounded-2xl border border-transparent px-1.5 py-2 text-center transition-all duration-200 hover:border-blue-100 hover:bg-blue-50/80 group-hover/nav:text-brand-700"
+                  >
+                    <span className="grid h-6 w-6 place-items-center rounded-xl bg-blue-50 text-brand-600 transition-all duration-200 group-hover/nav:scale-110 group-hover/nav:bg-blue-100">
+                      <NavIcon labelKey={item.labelKey} className="h-[14px] w-[14px]" />
+                    </span>
+                    <span className="inline-flex items-center gap-0 text-[9.5px] font-semibold leading-tight tracking-tight text-ink/80 transition-colors group-hover/nav:text-brand-700">
+                      {renderTopLevelNavLabel(t(item.labelKey))}
+                      {item.menu ? (
+                        <svg
+                          viewBox="0 0 24 24"
+                          width={9}
+                          height={9}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2.4}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                          className="transition-transform duration-200 group-hover/nav:rotate-180"
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      ) : null}
+                    </span>
+                  </Link>
+                  {item.menu ? <MegaMenu parentKey={item.labelKey} items={item.menu} t={t} /> : null}
+                </motion.li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+        </div>
 
       {/* ── MOBILE COMPACT BAR (< sm): logo + locale selectors + auth ── */}
       <div ref={mobileBarRef} className="flex items-center justify-between gap-1 px-2 py-2.5 bg-gradient-to-r from-agent-primary-900 via-agent-primary-800 to-agent-primary-900 sm:hidden min-h-[52px]">
@@ -906,82 +983,6 @@ export default function Header() {
             );
           })()}
         </AnimatePresence>
-      </div>
-
-      <div className="border-b border-slate-100 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
-          <nav className="hidden lg:block flex-1">
-            <ul className="flex flex-wrap items-center justify-center gap-1 text-ink">
-              {visibleNavItems.map((item) => (
-                <motion.li
-                  key={item.labelKey}
-                  className={cn(
-                    "group/nav relative inline-flex",
-                    item.menu && "z-0 hover:z-20",
-                  )}
-                  initial="rest"
-                  animate={item.menu && hoveredDesktopMenu === item.labelKey ? "hover" : "rest"}
-                  whileTap={{ scale: 0.97 }}
-                  variants={{ rest: { scale: 1 }, hover: { scale: 1.04 } }}
-                  transition={{ type: "spring", stiffness: 400, damping: 26 }}
-                  onMouseLeave={() => {
-                    if (item.menu) {
-                      setHoveredDesktopMenu((current) =>
-                        current === item.labelKey ? null : current,
-                      );
-                    }
-                  }}
-                  onBlur={(event) => {
-                    if (item.menu && !event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                      setHoveredDesktopMenu((current) =>
-                        current === item.labelKey ? null : current,
-                      );
-                    }
-                  }}
-                >
-                  <Link
-                    href={item.href}
-                    onMouseEnter={() => {
-                      if (item.menu) {
-                        setHoveredDesktopMenu(item.labelKey);
-                      }
-                    }}
-                    onFocus={() => {
-                      if (item.menu) {
-                        setHoveredDesktopMenu(item.labelKey);
-                      }
-                    }}
-                    className="relative inline-flex w-[72px] flex-col items-center justify-center gap-1 rounded-2xl border border-transparent px-1.5 py-2 text-center transition-all duration-200 hover:border-blue-100 hover:bg-blue-50/80 group-hover/nav:text-brand-700"
-                  >
-                    <span className="grid h-6 w-6 place-items-center rounded-xl bg-blue-50 text-brand-600 transition-all duration-200 group-hover/nav:scale-110 group-hover/nav:bg-blue-100">
-                      <NavIcon labelKey={item.labelKey} className="h-[14px] w-[14px]" />
-                    </span>
-                    <span className="inline-flex items-center gap-0 text-[9.5px] font-semibold leading-tight tracking-tight text-ink/80 transition-colors group-hover/nav:text-brand-700">
-                      {renderTopLevelNavLabel(t(item.labelKey))}
-                      {item.menu ? (
-                        <svg
-                          viewBox="0 0 24 24"
-                          width={9}
-                          height={9}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2.4}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                          className="transition-transform duration-200 group-hover/nav:rotate-180"
-                        >
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
-                      ) : null}
-                    </span>
-                  </Link>
-                  {item.menu ? <MegaMenu parentKey={item.labelKey} items={item.menu} t={t} /> : null}
-                </motion.li>
-              ))}
-            </ul>
-          </nav>
-        </div>
       </div>
 
     </motion.header>
