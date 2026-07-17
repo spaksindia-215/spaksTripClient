@@ -39,11 +39,10 @@ export interface TboRawErrorDetails {
   tboErrorCode?: number;
   tboErrorMessage?: string;
   traceId?: string;
-  // BookingId TBO returned alongside a BookFailed/VerifyPrice status. Even on
-  // a failed Book call, TBO may have created a booking record — when present,
-  // the caller must still verify via GetBookingDetail rather than treating the
-  // booking as a hard failure outright (TBO cert: "Not calling in failed
-  // booking case").
+  // BookingId TBO returned alongside a BookFailed/VerifyPrice status.
+  // Diagnostic only: per TBO's certification clarification, GetBookingDetail
+  // verification is triggered only for ambiguous Book outcomes (timeout/no
+  // response), not for this explicit failure case.
   bookingId?: number | null;
 }
 
@@ -110,8 +109,10 @@ export class TboPartialBookingError extends TboError {
 // non-timeout fetch exception, HTTP 5xx, or malformed/non-JSON body). This
 // is distinct from an explicit TBO failure (Status=0/BookFailed): TBO may or
 // may not have created the booking, so it must be verified via
-// GetBookingDetail before any refund decision — never silently treated as a
-// hard failure. Certification issue #38: "No calling in failed booking case".
+// GetBookingDetail (using TraceId) before any refund decision — never
+// silently treated as a hard failure. Per TBO's certification clarification,
+// this ambiguous-outcome case is the ONLY scenario (along with timeout) where
+// GetBookingDetail verification runs; an explicit BookFailed is not verified.
 export class TboBookOutcomeUnknownError extends TboError {
   constructor(detail: string) {
     super(10009, detail);

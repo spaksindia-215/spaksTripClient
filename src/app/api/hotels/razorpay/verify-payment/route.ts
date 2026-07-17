@@ -519,6 +519,7 @@ export async function POST(request: NextRequest) {
         "https://HotelBE.tektravels.com/hotelservice.svc/rest/book",
       {
         BookingCode: bookingCode,
+        
         NetAmount: bookInput.netAmount,
         IsVoucherBooking: bookInput.isVoucherBooking,
         GuestNationality: guestNationality,
@@ -683,30 +684,30 @@ export async function POST(request: NextRequest) {
     });
 
     // ── Verification before treating as failed ──────────────────────────────
-    // TBO certification ("Not calling in failed booking case"): GetBookingDetail
-    // must be called whenever TBO gave us an identifier to look up — BookingId
-    // or TraceId — even when Book itself reported an explicit failure
-    // (BookFailed/VerifyPrice). A failed Book response does not guarantee TBO
-    // never created a booking record. This now runs for timeouts, ambiguous
-    // outcomes, AND explicit failures alike; it is skipped only when neither
-    // identifier is available (e.g. a pure timeout/transport failure where
-    // Book never returned a parseable body at all).
+    // TBO certification clarification (updated): GetBookingDetail must be
+    // called ONLY when the Book request's outcome is ambiguous — i.e. we
+    // never received a determinate response from TBO (timeout, network
+    // failure, aborted fetch, or any other case where we cannot tell whether
+    // TBO processed the booking). Uses TraceId, as required by TBO.
+    //
+    // It must NOT be called for an explicit BookFailed response: TBO's Book
+    // call already told us definitively that the booking did not go through,
+    // so there is nothing to reconcile — proceed straight to the existing
+    // failure/refund flow below.
     let reconciledConfirmed: Awaited<ReturnType<typeof verifyBookingStatusAfterTimeout>>["booking"] | undefined;
-    const verifyIdentifier = tboBookingId ?? tboTraceId;
-    if (verifyIdentifier) {
+    const isAmbiguousBookOutcome = isTimeout || isAmbiguousOutcome;
+    if (isAmbiguousBookOutcome && tboTraceId) {
       const recovery = await verifyBookingStatusAfterTimeout({
-        bookingId: tboBookingId ?? undefined,
         traceId: tboTraceId,
         clientReferenceId,
         tboFailureReason,
       });
 
       console.log(
-        `\n[RZP ${ts()}] → RECOVERY_VERIFY (GetBookingDetail)` +
+        `\n[RZP ${ts()}] → RECOVERY_VERIFY (GetBookingDetail, TraceId)` +
           `\n  razorpayPaymentId: ${razorpayPaymentId}` +
           `\n  tboFailureReason: ${tboFailureReason}` +
-          `\n  tboBookingId: ${tboBookingId ?? "n/a"}` +
-          `\n  tboTraceId: ${tboTraceId ?? "n/a"}` +
+          `\n  tboTraceId: ${tboTraceId}` +
           `\n  found: ${recovery.found}` +
           `\n  bookingStatus: ${recovery.booking?.bookingStatus ?? "n/a"}`,
       );
@@ -714,6 +715,12 @@ export async function POST(request: NextRequest) {
       if (recovery.found && recovery.booking?.bookingStatus === "Confirmed") {
         reconciledConfirmed = recovery.booking;
       }
+    } else if (isAmbiguousBookOutcome && !tboTraceId) {
+      console.error(
+        `\n[RZP ${ts()}] ⚠ AMBIGUOUS BOOK OUTCOME, NO TRACEID AVAILABLE — recovery skipped` +
+          `\n  razorpayPaymentId: ${razorpayPaymentId}` +
+          `\n  tboFailureReason: ${tboFailureReason}`,
+      );
     }
 
     // If we failed before reaching the DB/TBO stage (bad signature, missing

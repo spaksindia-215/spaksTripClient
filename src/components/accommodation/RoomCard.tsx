@@ -19,7 +19,9 @@ type Props = {
 };
 
 export default function RoomCard({ room, nights, rooms, onSelect, selecting, disabled }: Props) {
-  const totalPrice = room.basePrice * nights * rooms;
+  // room.basePrice is TBO's TotalFare for the full booking (all rooms, all
+  // nights, taxes included) — display as-is, never multiplied.
+  const totalPrice = room.basePrice;
 
   return (
     <article className="flex flex-col sm:flex-row gap-0 overflow-hidden rounded-xl border border-border-soft bg-white shadow-(--shadow-xs)">
@@ -42,11 +44,10 @@ export default function RoomCard({ room, nights, rooms, onSelect, selecting, dis
           </div>
           <div className="flex flex-col items-end gap-1">
             <p className="text-[20px] font-extrabold text-ink leading-tight">
-              {formatINR(room.basePrice)}
-              <span className="text-[12px] font-medium text-ink-muted"> /night</span>
+              {formatINR(totalPrice)}
             </p>
             <p className="text-[11px] text-ink-muted">
-              {formatINR(totalPrice)} + taxes · {nights}N · {rooms}R
+              Total incl. taxes · {nights}N · {rooms}R
             </p>
           </div>
         </div>

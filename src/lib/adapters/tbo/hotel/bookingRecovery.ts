@@ -4,22 +4,18 @@ import { tboGetHotelBookingDetail, type GetBookingDetailInput, type HotelBooking
 /**
  * Booking Verification: verify TBO's actual booking outcome via GetBookingDetail.
  *
- * TBO Recommendation:
- * "If booking processing time exceeds 120 seconds cutoff, call BookingDetail
- *  using BookingId to know final status and avoid financial loss."
+ * TBO certification clarification: "BookingDetails must be called only when
+ * no response is received for the Book request (timeout/no response), using
+ * the TraceId." This function must be called ONLY when the Book request's
+ * outcome is ambiguous — request timeout, network failure, aborted fetch, or
+ * any other case where we never received a determinate response from TBO —
+ * using the TraceId. It must NOT be called for an explicit BookFailed
+ * response: that is already a confirmed outcome and is handled by the
+ * existing failure/refund flow directly.
  *
- * TBO Certification requirement ("Not calling in failed booking case"): this
- * must also be called when Book reported an explicit failure (BookFailed),
- * whenever TBO gave us an identifier (BookingId/TraceId) to look up — not
- * only for timeouts/ambiguous outcomes. A BookFailed response does not
- * guarantee TBO didn't create a booking record.
- *
- * This function attempts to retrieve booking status when the initial booking
- * request timed out, returned ambiguous/unknown outcome, or explicitly
- * failed. It can query by:
- * - bookingId: If returned in the Book response
- * - confirmationNo: If confirmation was issued despite timeout
- * - traceId: Fallback identifier from the Book response
+ * Callers should pass traceId (required per TBO). bookingId/confirmationNo
+ * are supported as alternate lookup keys but are not expected to be
+ * available in the ambiguous-outcome case this function targets.
  */
 export async function verifyBookingStatusAfterTimeout(
   input: Partial<GetBookingDetailInput> & {
