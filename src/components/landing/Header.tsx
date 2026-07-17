@@ -706,9 +706,9 @@ export default function Header() {
 
         <div className="hidden px-3 pt-2 sm:px-6 lg:block">
           {/* Translucent, rounded shell enclosing just the icon nav row. */}
-          <div className="mx-auto max-w-[78rem] rounded-[28px] mb-2 border border-blue-500/60 bg-blue-300/70 px-3 py-1 shadow-[0_16px_50px_-18px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+          <div className="mx-auto max-w-[78rem] rounded-[28px] mb-2 border border-blue-500/30 bg-blue-300/20 px-3 py-1 shadow-[0_16px_50px_-18px_rgba(15,23,42,0.25)] backdrop-blur-xl">
           <nav className="flex-1">
-            <ul className="flex flex-wrap items-center justify-center gap-1 text-ink">
+            <ul className="flex flex-wrap items-start justify-center gap-1 text-ink">
               {visibleNavItems.map((item) => (
                 <motion.li
                   key={item.labelKey}
