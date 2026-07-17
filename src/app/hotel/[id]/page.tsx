@@ -191,9 +191,12 @@ function HotelDetailInner() {
         isRefundable: firstRoom.isRefundable,
       };
 
-      // Detect price change: compare Search price vs PreBook price
-      // Search price: room.basePrice × nights × rooms + taxes
-      const searchTotalPrice = Math.round(room.basePrice * nights * rooms * 1.12); // Approx with 12% tax
+      // Detect price change: compare Search price vs PreBook price.
+      // room.basePrice is TBO's TotalFare for the entire booking (all rooms,
+      // all nights, taxes included already) — use it as-is, never multiplied
+      // by nights/rooms and never re-taxed, or every multi-room booking would
+      // show a false price change.
+      const searchTotalPrice = Math.round(room.basePrice);
       const preBookNetAmount = preBookInfo.netAmount;
       const priceChanged = Math.abs(searchTotalPrice - preBookNetAmount) > 100; // Allow 100 INR variance
 

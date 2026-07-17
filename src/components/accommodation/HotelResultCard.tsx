@@ -165,10 +165,9 @@ export default function HotelResultCard({ hotel, checkIn, checkOut, rooms, adult
             </p>
             <p className="text-[22px] font-extrabold text-ink leading-tight">
               {formatINR(hotel.lowestPrice)}
-              <span className="text-[13px] font-medium text-ink-muted"> /night</span>
             </p>
             <p className="text-[11px] text-ink-muted">
-              Total {formatINR(hotel.lowestPrice * nights * rooms)} + taxes
+              Total incl. taxes
             </p>
           </div>
           <Link

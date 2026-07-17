@@ -280,31 +280,29 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
     throw unknownErr;
   }
 
-  try {
-    assertTboSuccess(data.BookResult?.Error);
-  } catch (err) {
-    // Diagnostic-only: attach raw TraceId so it survives alongside the typed
-    // error's existing ErrorCode/ErrorMessage (already preserved as .code/.message).
-    if (err instanceof TboError && data.BookResult?.TraceId) {
-      (err as TboError & { traceId?: string }).traceId = data.BookResult.TraceId;
-    }
-    throw err;
-  }
-
   const r = data.BookResult;
   if (!r) throw new Error("TBO Book returned empty BookResult");
 
   const bookingStatus = mapBookingStatus(r.HotelBookingStatus, r.Status);
-  // BookingId is preserved on rawDetails even for failure statuses: TBO's
-  // certification remark "Not calling in failed booking case" means
-  // GetBookingDetail must still be called whenever TBO gave us an identifier
-  // to look up, even though Book itself reported failure.
+  // TraceId/BookingId are preserved on rawDetails for diagnostics regardless
+  // of outcome. Per TBO's certification clarification, the caller must only
+  // act on these (via GetBookingDetail) when the Book request's outcome was
+  // ambiguous (timeout/no response) — not for this explicit BookFailed case.
   const rawDetails = {
     tboErrorCode: r.Error?.ErrorCode,
     tboErrorMessage: r.Error?.ErrorMessage,
     traceId: r.TraceId,
     bookingId: r.BookingId ?? null,
   };
+
+  // The Status/HotelBookingStatus envelope is checked FIRST and is
+  // authoritative over the Error node: TBO's real BookFailed responses
+  // routinely carry a non-zero Error.ErrorCode alongside Status=0, and if
+  // assertTboSuccess() ran first on that Error node, it would throw its own
+  // (differently-worded) error before this explicit status was ever
+  // consulted — silently breaking the route's explicit-failure vs.
+  // ambiguous-outcome classification. Checking Status first guarantees a
+  // recognized BookFailed/VerifyPrice/Confirmed/Cancelled status always wins.
 
   // Status 3 = VerifyPrice — rate changed since PreBook; caller must re-prebook
   if (bookingStatus === "VerifyPrice") {
@@ -315,21 +313,45 @@ export async function tboBookHotel(input: HotelBookInput): Promise<HotelBookOutp
   }
 
   if (bookingStatus === "BookFailed") {
-    // Explicit failure (status code 0) — TBO may still have created a
-    // booking record; caller must call GetBookingDetail using BookingId/
-    // TraceId before treating this as a confirmed hard failure (TBO cert:
-    // "Not calling in failed booking case").
+    // Explicit failure (status code 0) — TBO's Book response definitively
+    // reported failure, so this is treated as a confirmed hard failure.
+    // Per TBO's certification clarification, GetBookingDetail is NOT called
+    // for this case; it is reserved for ambiguous outcomes (timeout/no
+    // response) where we cannot tell whether TBO processed the booking.
     throw new TboBookingFailedError(
       `Booking explicitly failed (status_code=0).`,
       rawDetails,
     );
   }
 
+  // Only reached for Confirmed/Cancelled/Unknown statuses, i.e. TBO did NOT
+  // give us an explicit BookFailed/VerifyPrice. Now consult the Error node:
+  // a non-zero ErrorCode here (e.g. session expired, fare expired) means the
+  // request itself was rejected, distinct from a business-outcome BookFailed.
+  try {
+    assertTboSuccess(r.Error);
+  } catch (err) {
+    if (err instanceof TboError && r.TraceId) {
+      (err as TboError & { traceId?: string }).traceId = r.TraceId;
+    }
+    throw err;
+  }
+
   if (bookingStatus === "Unknown") {
-    throw new TboBookingFailedError(
-      `Booking returned unknown status "${r.HotelBookingStatus ?? bookingStatus}"`,
-      rawDetails,
+    // TBO responded with ErrorCode=0 (no rejection) but a Status/
+    // HotelBookingStatus combination we don't recognize (e.g. a value
+    // outside Confirmed/BookFailed/VerifyPrice/Cancelled). We cannot
+    // determine whether TBO actually processed the booking, so this is an
+    // ambiguous outcome — not a confirmed failure — and must be verified
+    // via GetBookingDetail using TraceId, same as a timeout or network
+    // failure.
+    const unknownStatusErr = new TboBookOutcomeUnknownError(
+      `Booking returned unrecognized status "${r.HotelBookingStatus ?? bookingStatus}" (code ${r.Status ?? "n/a"})`,
     );
+    if (rawDetails.traceId) {
+      (unknownStatusErr as TboBookOutcomeUnknownError & { traceId?: string }).traceId = rawDetails.traceId;
+    }
+    throw unknownStatusErr;
   }
 
   return {

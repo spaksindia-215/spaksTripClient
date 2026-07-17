@@ -120,13 +120,15 @@ type Actions = {
   clearCurrent: () => void;
 };
 
+// room.basePrice is TBO's TotalFare for the full booking (all rooms, all
+// nights, taxes included) — it must be used as-is, never multiplied by
+// nights or rooms, and never re-taxed.
 function computeHotelTotals(room: Room, nights: number, rooms: number, addOns: HotelBooking["addOns"]) {
-  const base = room.basePrice * nights * rooms;
+  const base = room.basePrice;
   const breakfastCost = addOns.breakfast ? 650 * nights * rooms : 0;
   const insuranceCost = addOns.insurance ? 499 : 0;
   const subtotal = base + breakfastCost + insuranceCost;
-  const taxes = Math.round(subtotal * 0.12);
-  return { subtotal, taxes, total: subtotal + taxes };
+  return { subtotal, taxes: 0, total: subtotal };
 }
 
 // Add-on cost only (no tax, no base fare) — used to adjust the PreBook-authoritative
