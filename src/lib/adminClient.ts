@@ -246,6 +246,19 @@ export const adminClient = {
       if (!response.ok) throw new ApiError(response.status, (payload && payload.error) || "Request failed");
       return (payload as { item: AdminPackage }).item;
     },
+    // Full record (incl. specs/itinerary/highlights/…) for the edit form to prefill.
+    async get(id: string): Promise<AdminPackageDetail> {
+      const res = await api<{ item: AdminPackageDetail }>(`/api/admin/packages/${id}`, { skipRefresh: true });
+      return res.item;
+    },
+    // Multipart update of an existing template (PUT): same `data` + optional `images`
+    // (images kept as-is server-side when none are uploaded).
+    async updateTemplate(id: string, form: FormData): Promise<AdminPackage> {
+      const response = await fetch(`/api/admin/packages/${id}`, { method: "PUT", body: form, credentials: "include" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new ApiError(response.status, (payload && payload.error) || "Request failed");
+      return (payload as { item: AdminPackage }).item;
+    },
     async setStatus(id: string, status: string): Promise<AdminPackage> {
       const res = await api<{ item: AdminPackage }>(`/api/admin/packages/${id}/status`, { method: "PATCH", body: { status }, skipRefresh: true });
       return res.item;
@@ -340,10 +353,26 @@ export type AdminPackage = {
   description?: string;
   referencePrice?: number;
   currency?: string;
-  route: { destinations: string[]; durationDays: number; durationNights: number };
+  route: { origin?: string; destinations: string[]; durationDays: number; durationNights: number };
   components?: { category: string; title: string; quantity: number; included: boolean }[];
   author?: { id: string; name?: string; companyName?: string } | string;
   createdAt?: string;
+};
+
+// Full package record returned by GET /api/admin/packages/:id — the trimmed
+// AdminPackage (list view) plus every field the edit form needs to prefill.
+// `specs` carries the vertical-specific block in the same shape the create form's
+// buildFormData payload produced (see packageTemplateHydrate.ts for the inverse).
+export type AdminPackageDetail = AdminPackage & {
+  scope: "domestic" | "international";
+  description?: string;
+  highlights?: string[];
+  tags?: string[];
+  state?: string;
+  inclusions?: string[];
+  exclusions?: string[];
+  itinerary?: unknown[];
+  specs?: Record<string, unknown>;
 };
 
 // §5.3 — result of comparing a partner submission against the closest platform

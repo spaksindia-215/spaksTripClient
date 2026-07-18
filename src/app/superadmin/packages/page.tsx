@@ -10,11 +10,15 @@ import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import EmptyState from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
-import { adminClient, type AdminPackage, type AdminEnquiry, type PackageComparison } from "@/lib/adminClient";
+import { adminClient, type AdminPackage, type AdminPackageDetail, type AdminEnquiry, type PackageComparison } from "@/lib/adminClient";
 import PackageTemplateModal, { TEMPLATE_KINDS } from "@/components/superadmin/PackageTemplateModal";
 import { formatINR } from "@/lib/format";
 
 type Tab = "templates" | "enquiries";
+
+// Kinds the template modal can build/edit (everything except "bundle", which is
+// composed through a different partner-only flow).
+const EDITABLE_KINDS = new Set(TEMPLATE_KINDS.map((k) => k.value as string));
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warn" | "danger"> = {
   active: "success", draft: "neutral", pending: "warn", paused: "warn", suspended: "danger",
@@ -117,11 +121,13 @@ function CompareModal({
 }
 
 function PackageRow({
-  p, busy, onReview, onSetStatus, onDelete,
+  p, busy, editing, onReview, onEdit, onSetStatus, onDelete,
 }: {
   p: AdminPackage;
   busy: boolean;
+  editing: boolean;
   onReview: (p: AdminPackage) => void;
+  onEdit: (p: AdminPackage) => void;
   onSetStatus: (p: AdminPackage, status: string) => void;
   onDelete: (p: AdminPackage) => void;
 }) {
@@ -158,6 +164,9 @@ function PackageRow({
           {p.origin === "partner" && p.status === "pending" && (
             <Button variant="accent" size="sm" onClick={() => onReview(p)}>Review</Button>
           )}
+          {p.origin === "platform" && EDITABLE_KINDS.has(p.kind) && (
+            <Button variant="secondary" size="sm" loading={editing} onClick={() => onEdit(p)}>Edit</Button>
+          )}
           {p.status === "active" && (
             <Link href={`/packages/${p.slug}`} target="_blank" className="rounded-lg border border-border px-3 py-1.5 text-[12px] font-semibold text-ink-soft hover:bg-surface-muted">
               View live ↗
@@ -185,6 +194,8 @@ export default function AdminPackagesPage() {
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewPkg, setReviewPkg] = useState<AdminPackage | null>(null);
+  const [editing, setEditing] = useState<AdminPackageDetail | null>(null);
+  const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     adminClient.me().then(() => setSession("in")).catch(() => setSession("out"));
@@ -210,9 +221,20 @@ export default function AdminPackagesPage() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   // A freshly created template is always "active"; make sure no filter hides it.
+  // (An edit keeps its status, but a refresh is harmless either way.)
   const handleTemplateSaved = () => {
     if (statusFilter !== "" || kindFilter !== "") { setStatusFilter(""); setKindFilter(""); }
     else void refresh();
+  };
+
+  // Fetch the full record (list rows are trimmed) and open the modal in edit mode.
+  const openEdit = async (p: AdminPackage) => {
+    setEditLoadingId(p.id);
+    try {
+      setEditing(await adminClient.packages.get(p.id));
+    } catch (e) {
+      toast.push({ title: "Could not load listing", description: e instanceof Error ? e.message : undefined, tone: "danger" });
+    } finally { setEditLoadingId(null); }
   };
 
   // Search is client-side over the loaded page (title, destinations, author).
@@ -321,7 +343,9 @@ export default function AdminPackagesPage() {
               key={p.id}
               p={p}
               busy={busyId === p.id}
+              editing={editLoadingId === p.id}
               onReview={setReviewPkg}
+              onEdit={openEdit}
               onSetStatus={setStatus}
               onDelete={deletePkg}
             />
@@ -352,7 +376,12 @@ export default function AdminPackagesPage() {
         </div>
       )}
 
-      <PackageTemplateModal open={formOpen} onClose={() => setFormOpen(false)} onSaved={handleTemplateSaved} />
+      <PackageTemplateModal
+        open={formOpen || !!editing}
+        editing={editing}
+        onClose={() => { setFormOpen(false); setEditing(null); }}
+        onSaved={handleTemplateSaved}
+      />
       <CompareModal
         pkg={reviewPkg}
         onClose={() => setReviewPkg(null)}

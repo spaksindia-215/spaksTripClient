@@ -8,7 +8,17 @@ import Textarea from "@/components/ui/Textarea";
 import Checkbox from "@/components/ui/Checkbox";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
-import { adminClient } from "@/lib/adminClient";
+import { adminClient, type AdminPackageDetail } from "@/lib/adminClient";
+import {
+  holidayFormFromPackage,
+  taxiPackageFormFromPackage,
+  tourPackageFormFromPackage,
+  tourFormFromPackage,
+  cruiseFormFromPackage,
+  sightseeingFormFromPackage,
+  flatSpecsFromPackage,
+  genericFieldsFromPackage,
+} from "@/lib/packageTemplateHydrate";
 import LocationPickerField from "@/components/partner/LocationPickerField";
 import StateSelect from "@/components/ui/StateSelect";
 import ItineraryDescriptionField from "@/components/partner/ItineraryDescriptionField";
@@ -138,14 +148,19 @@ export default function PackageTemplateModal({
   onSaved,
   initialKind = "holiday",
   lockKind = false,
+  editing = null,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   initialKind?: string;
   lockKind?: boolean;
+  // When set, the modal edits this existing listing (prefilled) and PUTs on save
+  // instead of creating. The kind is frozen (a listing can't change vertical).
+  editing?: AdminPackageDetail | null;
 }) {
   const toast = useToast();
+  const editingId = editing?.id ?? null;
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState(initialKind);
   const [scope, setScope] = useState("domestic");
@@ -173,10 +188,44 @@ export default function PackageTemplateModal({
   const [cForm, setCForm] = useState<CruiseFormState>(() => emptyCruiseForm());
   const [xpForm, setXpForm] = useState<TaxiPackageFormState>(() => emptyTaxiPackageForm());
 
-  // Re-sync the kind whenever the caller opens the modal for a specific type.
+  // On open: hydrate from the listing being edited, else reset to a blank create
+  // form for the requested kind.
   useEffect(() => {
-    if (open) setKind(initialKind);
-  }, [open, initialKind]);
+    if (!open) return;
+    if (editing) {
+      setKind(editing.kind);
+      setScope(editing.scope === "international" ? "international" : "domestic");
+      hydrateFromPackage(editing);
+    } else {
+      setKind(initialKind);
+      resetAll();
+    }
+    // hydrateFromPackage/resetAll are stable closures over setState setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing, initialKind]);
+
+  // Prefill every form-state branch from a stored listing (inverse of `save()`).
+  function hydrateFromPackage(pkg: AdminPackageDetail) {
+    setImages(null);
+    switch (pkg.kind) {
+      case "holiday": setHForm(() => holidayFormFromPackage(pkg)); return;
+      case "tour_package": setTpForm(() => tourPackageFormFromPackage(pkg)); return;
+      case "tour": setTForm(() => tourFormFromPackage(pkg)); return;
+      case "cruise": setCForm(() => cruiseFormFromPackage(pkg)); return;
+      case "taxi_package": setXpForm(() => taxiPackageFormFromPackage(pkg)); return;
+      case "sightseeing": setSForm(() => sightseeingFormFromPackage(pkg)); return;
+      default: {
+        // Flat/generic kinds (taxi, transfer, self_drive, islandhopper, visa).
+        const g = genericFieldsFromPackage(pkg);
+        setTitle(g.title); setDestinations(g.destinations); setDays(g.days); setNights(g.nights);
+        setDescription(g.description); setHighlights(g.highlights);
+        setInclusions(g.inclusions); setExclusions(g.exclusions); setPrice(g.price);
+        const flatFields = PACKAGE_KIND_SPECS[pkg.kind as PackageKind] ?? [];
+        const { values, checklists } = flatSpecsFromPackage(pkg, flatFields);
+        setSpecValues(values); setSpecChecklists(checklists);
+      }
+    }
+  }
 
   function setSField<K extends keyof SightseeingFormState>(key: K, value: SightseeingFormState[K]) {
     setSForm((c) => ({ ...c, [key]: value }));
@@ -246,12 +295,17 @@ export default function PackageTemplateModal({
       const form = new FormData();
       form.append("data", JSON.stringify(data));
       if (images) Array.from(images).forEach((f) => form.append("images", f));
-      await adminClient.packages.createTemplate(form);
-      toast.push({ title: successLabel, description: "It's live now and manageable under Packages.", tone: "success" });
+      if (editingId) {
+        await adminClient.packages.updateTemplate(editingId, form);
+        toast.push({ title: "Listing updated", description: "Your changes are saved.", tone: "success" });
+      } else {
+        await adminClient.packages.createTemplate(form);
+        toast.push({ title: successLabel, description: "It's live now and manageable under Packages.", tone: "success" });
+      }
       onSaved(); onClose();
       resetAll();
     } catch (e) {
-      toast.push({ title: "Could not create listing", description: e instanceof Error ? e.message : undefined, tone: "danger" });
+      toast.push({ title: editingId ? "Could not update listing" : "Could not create listing", description: e instanceof Error ? e.message : undefined, tone: "danger" });
     } finally { setSaving(false); }
   }
 
@@ -386,11 +440,12 @@ export default function PackageTemplateModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={lockKind ? `New ${kindLabel(kind)} listing` : "New listing"} size="lg"
-      footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="accent" onClick={save} loading={saving}>Create</Button></div>}>
+    <Modal open={open} onClose={onClose}
+      title={editingId ? `Edit ${kindLabel(kind)} listing` : lockKind ? `New ${kindLabel(kind)} listing` : "New listing"} size="lg"
+      footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="accent" onClick={save} loading={saving}>{editingId ? "Save changes" : "Create"}</Button></div>}>
       <div className="flex flex-col gap-3 p-1">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Select label="Type" value={kind} onChange={(e) => setKind(e.target.value)} disabled={lockKind}>
+          <Select label="Type" value={kind} onChange={(e) => setKind(e.target.value)} disabled={lockKind || !!editingId}>
             {TEMPLATE_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
           </Select>
           <Select label="Scope" value={scope} onChange={(e) => setScope(e.target.value)}><option value="domestic">Domestic</option><option value="international">International</option></Select>
@@ -478,6 +533,7 @@ export default function PackageTemplateModal({
         <div className="flex flex-col gap-1">
           <label className="text-[13px] font-medium text-ink-soft">Images</label>
           <input type="file" accept="image/*" multiple onChange={(e) => setImages(e.target.files)} className="text-[13px]" />
+          {editingId && <p className="text-[12px] text-ink-muted">Leave empty to keep the current images; choosing files replaces them.</p>}
         </div>
       </div>
     </Modal>
