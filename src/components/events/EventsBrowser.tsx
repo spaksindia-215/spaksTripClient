@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import EventCard from "@/components/events/EventCard";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
+import { PAGE_SIZE } from "@/lib/pagination";
 import { eventsService, type EventCard as EventCardType, type EventFilters } from "@/services/events";
 
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -39,7 +41,7 @@ export default function EventsBrowser() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const filters: EventFilters = { page, limit: 12 };
+    const filters: EventFilters = { page, limit: PAGE_SIZE };
     if (city.trim()) filters.city = city.trim();
     if (category) filters.category = category;
     if (price === "free") filters.isFree = true;
@@ -135,27 +137,15 @@ export default function EventsBrowser() {
               ))}
             </div>
 
-            {totalPages > 1 && (
-              <div className="mt-10 flex items-center justify-center gap-3">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-[#0E1E3A] disabled:opacity-40"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-gray-500">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-[#0E1E3A] disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
-            )}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={(p) => {
+                setPage(p);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="mt-10"
+            />
           </>
         )}
       </div>

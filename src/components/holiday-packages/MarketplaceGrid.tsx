@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatINR } from "@/lib/format";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
+import { fetchAllPages, pageSlice, pageCount } from "@/lib/pagination";
 import { stateToSlug } from "@/lib/indianStates";
 import {
   listPackages,
@@ -143,21 +145,39 @@ export default function MarketplaceGrid({ kind, kinds, scope, emptyHint, state }
   const [items, setItems] = useState<PackageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   // Serialized so the effect doesn't refire on a new array identity each render.
   const kindsKey = kinds?.join(",");
+
+  // A different kind/scope/state is a different result set — restart at page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [kind, kindsKey, scope, state]);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     const kindList = kindsKey ? (kindsKey.split(",") as PackageKind[]) : [kind];
-    Promise.all(kindList.map((k) => listPackages({ kind: k, scope, state, limit: 50 })))
+    // Every page of every kind is drained: the "browse by state" directory below
+    // derives its per-state counts from the full set, so a truncated fetch would
+    // under-report them. Paging happens client-side over the merged array.
+    Promise.all(
+      kindList.map((k) =>
+        fetchAllPages((page, limit) => listPackages({ kind: k, scope, state, page, limit })),
+      ),
+    )
       .then((results) => {
         if (cancelled) return;
         // Concatenate per-kind results, de-duped by id (defensive — kinds are disjoint).
         const seen = new Set<string>();
-        setItems(results.flatMap((r) => r.items).filter((p) => !seen.has(p.id) && seen.add(p.id)));
+        setItems(results.flat().filter((p) => !seen.has(p.id) && seen.add(p.id)));
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load packages");
@@ -205,12 +225,24 @@ export default function MarketplaceGrid({ kind, kinds, scope, emptyHint, state }
   // Same once a state has already been chosen (server-filtered) — every result
   // matches, so there's nothing left to group.
   if (scope === "international" || state) {
+    // Clamped during render: the page-1 reset lands an effect later, so one
+    // render can still hold a page index past the end of a shrunken result set.
+    const totalPages = pageCount(items.length);
+    const safePage = Math.min(page, totalPages);
     return (
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {items.map((pkg) => (
-          <PackageCard key={pkg.id} pkg={pkg} />
-        ))}
-      </div>
+      <>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {pageSlice(items, safePage).map((pkg) => (
+            <PackageCard key={pkg.id} pkg={pkg} />
+          ))}
+        </div>
+        <Pagination
+          page={safePage}
+          totalPages={totalPages}
+          onChange={goToPage}
+          className="mt-10"
+        />
+      </>
     );
   }
 
@@ -230,6 +262,11 @@ export default function MarketplaceGrid({ kind, kinds, scope, emptyHint, state }
   }
   const availableStates = Array.from(stateCounts.keys()).sort();
 
+  // Only the ungrouped "other" list pages; the state directory is a compact
+  // index of every state and is meant to be seen whole.
+  const otherTotalPages = pageCount(other.length);
+  const otherSafePage = Math.min(page, otherTotalPages);
+
   return (
     <div className="flex flex-col gap-8">
       {availableStates.length > 0 && (
@@ -248,10 +285,16 @@ export default function MarketplaceGrid({ kind, kinds, scope, emptyHint, state }
             <h2 className="mb-4 text-[17px] font-extrabold text-ink">{OTHER}</h2>
           )}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {other.map((pkg) => (
+            {pageSlice(other, otherSafePage).map((pkg) => (
               <PackageCard key={pkg.id} pkg={pkg} />
             ))}
           </div>
+          <Pagination
+            page={otherSafePage}
+            totalPages={otherTotalPages}
+            onChange={goToPage}
+            className="mt-10"
+          />
         </div>
       )}
     </div>

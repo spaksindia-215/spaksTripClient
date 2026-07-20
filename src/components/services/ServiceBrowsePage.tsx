@@ -5,6 +5,8 @@ import Link from "next/link";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
+import { fetchAllPages, pageSlice, pageCount } from "@/lib/pagination";
 import {
   servicePublicApi,
   type ServiceModuleConfig,
@@ -38,18 +40,28 @@ export default function ServiceBrowsePage({ config, heading, blurb, forcedFilter
   const [packages, setPackages] = useState<PackageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     // The vertical's typed listings and its marketplace packages feed one grid;
     // if either source fails the other still renders.
+    // Both sources are drained fully, then paged client-side over the merged
+    // array — server paging can't compose across two independent sources.
     const [listings, pkgs] = await Promise.allSettled([
-      apiClient.browse({ ...forcedFilter }),
-      listPackages({ kind: config.vertical as PackageKind, limit: 50 }),
+      fetchAllPages((page, limit) => apiClient.browse({ ...forcedFilter, page, limit })),
+      fetchAllPages((page, limit) =>
+        listPackages({ kind: config.vertical as PackageKind, page, limit }),
+      ),
     ]);
-    if (listings.status === "fulfilled") setItems(listings.value.items);
-    if (pkgs.status === "fulfilled") setPackages(pkgs.value.items);
+    if (listings.status === "fulfilled") setItems(listings.value);
+    if (pkgs.status === "fulfilled") setPackages(pkgs.value);
     if (listings.status === "rejected" && pkgs.status === "rejected") {
       setError(listings.reason instanceof Error ? listings.reason.message : "Could not load listings.");
     }
@@ -59,6 +71,7 @@ export default function ServiceBrowsePage({ config, heading, blurb, forcedFilter
 
   useEffect(() => {
     void load();
+    setPage(1); // `load` is memoized on config+filter, so this is a new result set
   }, [load]);
 
   const cards: Card[] = [
@@ -80,6 +93,9 @@ export default function ServiceBrowsePage({ config, heading, blurb, forcedFilter
     })),
   ];
 
+  const totalPages = pageCount(cards.length);
+  const safePage = Math.min(page, totalPages);
+
   return (
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <Header />
@@ -99,8 +115,9 @@ export default function ServiceBrowsePage({ config, heading, blurb, forcedFilter
           ) : cards.length === 0 ? (
             <EmptyState title="Nothing found" subtitle="Check back soon." />
           ) : (
+            <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {cards.map((card) => (
+              {pageSlice(cards, safePage).map((card) => (
                 <Link
                   key={card.key}
                   href={card.href}
@@ -120,6 +137,13 @@ export default function ServiceBrowsePage({ config, heading, blurb, forcedFilter
                 </Link>
               ))}
             </div>
+            <Pagination
+              page={safePage}
+              totalPages={totalPages}
+              onChange={goToPage}
+              className="mt-10"
+            />
+            </>
           )}
         </section>
       </main>

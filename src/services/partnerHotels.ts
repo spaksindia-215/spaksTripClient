@@ -104,6 +104,7 @@ export async function browseAccommodation(params: {
   city?: string;
   q?: string;
   page?: number;
+  limit?: number;
 } = {}): Promise<{ items: PartnerHotel[]; pagination: Pagination }> {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) sp.set(k, String(v));

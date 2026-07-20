@@ -7,6 +7,8 @@ import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import Chip from "@/components/ui/Chip";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
+import { PAGE_SIZE } from "@/lib/pagination";
 import { formatINR } from "@/lib/format";
 import {
   browseAccommodation,
@@ -68,17 +70,33 @@ function AccommodationBrowse() {
   const [items, setItems] = useState<PartnerHotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Switching type is a different result set — restart at page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [type]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    browseAccommodation({ type: type === "all" ? undefined : type, page: 1 })
-      .then((res) => { if (!cancelled) setItems(res.items); })
+    browseAccommodation({ type: type === "all" ? undefined : type, page, limit: PAGE_SIZE })
+      .then((res) => {
+        if (cancelled) return;
+        setItems(res.items);
+        setTotalPages(res.pagination?.totalPages ?? 1);
+      })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [type]);
+  }, [type, page]);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
@@ -108,9 +126,17 @@ function AccommodationBrowse() {
             subtitle="Try adjusting your search or category filters."
           />
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((s) => <Card key={s.id} stay={s} />)}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {items.map((s) => <Card key={s.id} stay={s} />)}
+            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={goToPage}
+              className="mt-10"
+            />
+          </>
         )}
       </div>
     </main>

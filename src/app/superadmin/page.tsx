@@ -11,7 +11,9 @@ import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
+import Pagination from "@/components/ui/Pagination";
 import Tabs from "@/components/ui/Tabs";
+import { pageSlice, pageCount } from "@/lib/pagination";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api";
 import {
@@ -196,6 +198,7 @@ export default function SuperadminPage() {
   const [listingType, setListingType] = useState<AdminListingType | "all">("all");
   const [listingStatus, setListingStatus] = useState<string>("all");
   const [listingsReloadKey, setListingsReloadKey] = useState(0);
+  const [listingPage, setListingPage] = useState(1);
   const [templateOpen, setTemplateOpen] = useState(false);
 
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -527,6 +530,17 @@ export default function SuperadminPage() {
   };
 
   const reloadListings = () => setListingsReloadKey((k) => k + 1);
+
+  // Only a filter change restarts at page 1 — a reload after approve/pause/delete
+  // must keep the admin where they were in the list.
+  useEffect(() => {
+    setListingPage(1);
+  }, [listingType, listingStatus]);
+
+  // Clamped: deleting the last row on the last page shrinks the set under the
+  // current index before the reload lands.
+  const listingTotalPages = pageCount(listings.length);
+  const listingSafePage = Math.min(listingPage, listingTotalPages);
 
   const approveListing = async (listing: UnifiedListing) => {
     setActionLoading(true);
@@ -899,7 +913,7 @@ export default function SuperadminPage() {
                 />
               ) : (
                 <div className="flex flex-col gap-3">
-                  {listings.map((listing) => {
+                  {pageSlice(listings, listingSafePage).map((listing) => {
                     const partner = listing.partner;
                     const iconMeta = LISTING_ICON[listing.type] ?? { Icon: FileText, tone: "neutral" as const };
                     const ListingIcon = iconMeta.Icon;
@@ -968,6 +982,15 @@ export default function SuperadminPage() {
                       </article>
                     );
                   })}
+                  <Pagination
+                    page={listingSafePage}
+                    totalPages={listingTotalPages}
+                    onChange={(p) => {
+                      setListingPage(p);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="mt-4 pb-20"
+                  />
                 </div>
               )}
             </div>

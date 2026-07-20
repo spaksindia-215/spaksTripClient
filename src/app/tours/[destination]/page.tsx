@@ -15,6 +15,8 @@ import {
   type TourCategory,
 } from "@/lib/tourListingsClient";
 import { formatINR } from "@/lib/format";
+import { PAGE_SIZE } from "@/lib/pagination";
+import Pagination from "@/components/ui/Pagination";
 
 const CATEGORIES: { key: TourCategory | ""; label: string }[] = [
   { key: "", label: "All" },
@@ -125,17 +127,40 @@ export default function TourDestinationPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<TourCategory | "">("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  // A new destination or category is a different result set, so restart at page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [decoded, category]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    listTourListings({ destination: decoded, category: category || undefined, limit: 50 })
-      .then((r) => { if (!cancelled) setListings(r.items); })
+    listTourListings({
+      destination: decoded,
+      category: category || undefined,
+      page,
+      limit: PAGE_SIZE,
+    })
+      .then((r) => {
+        if (cancelled) return;
+        setListings(r.items);
+        setTotalPages(r.pagination?.totalPages ?? 1);
+        setTotal(r.pagination?.total ?? r.items.length);
+      })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [decoded, category]);
+  }, [decoded, category, page]);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="min-h-screen bg-white text-ink">
@@ -153,7 +178,8 @@ export default function TourDestinationPage({
             <h1 className="mt-2 text-[30px] font-extrabold sm:text-[36px]">{decoded}</h1>
             {!loading && (
               <p className="mt-1 text-[14px] text-brand-200">
-                {listings.length} tour{listings.length === 1 ? "" : "s"} available
+                {total} tour{total === 1 ? "" : "s"} available
+                {totalPages > 1 && ` · page ${page} of ${totalPages}`}
               </p>
             )}
           </div>
@@ -204,11 +230,19 @@ export default function TourDestinationPage({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {listings.map((l) => (
-                <OperatorCard key={l.id} listing={l} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {listings.map((l) => (
+                  <OperatorCard key={l.id} listing={l} />
+                ))}
+              </div>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onChange={goToPage}
+                className="mt-10"
+              />
+            </>
           )}
         </section>
       </main>

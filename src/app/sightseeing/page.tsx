@@ -5,6 +5,8 @@ import Link from "next/link";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
+import { fetchAllPages, pageSlice, pageCount } from "@/lib/pagination";
 import { browseSightseeing } from "@/lib/sightseeingClient";
 import type { SightseeingListingApi } from "@/lib/partnerClient";
 import { CATEGORY_LABELS } from "@/lib/sightseeingForm";
@@ -65,21 +67,32 @@ export default function SightseeingLandingPage() {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  const totalPages = pageCount(cards.length);
+  const safePage = Math.min(page, totalPages);
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
     // Both sources feed one grid; if one fails the other still renders.
+    // Both sources are drained fully, then paged client-side over the merged
+    // array — server paging can't compose across two independent sources.
     Promise.allSettled([
-      listPackages({ kind: "sightseeing", limit: 50 }),
-      browseSightseeing({ sort: "newest" }),
+      fetchAllPages((page, limit) => listPackages({ kind: "sightseeing", page, limit })),
+      fetchAllPages((page, limit) => browseSightseeing({ sort: "newest", page, limit })),
     ])
       .then(([pkgs, listings]) => {
         if (!active) return;
         const out: Card[] = [];
-        if (pkgs.status === "fulfilled") out.push(...pkgs.value.items.map(packageCard));
-        if (listings.status === "fulfilled") out.push(...listings.value.items.map(listingCard));
+        if (pkgs.status === "fulfilled") out.push(...pkgs.value.map(packageCard));
+        if (listings.status === "fulfilled") out.push(...listings.value.map(listingCard));
         if (pkgs.status === "rejected" && listings.status === "rejected") {
           const reason = listings.reason;
           setError(reason instanceof Error ? reason.message : "Could not load activities.");
@@ -121,8 +134,9 @@ export default function SightseeingLandingPage() {
           ) : cards.length === 0 ? (
             <EmptyState title="No activities found" subtitle="Check back soon." />
           ) : (
+            <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {cards.map((card) => (
+              {pageSlice(cards, safePage).map((card) => (
                 <Link
                   key={card.key}
                   href={card.href}
@@ -148,6 +162,13 @@ export default function SightseeingLandingPage() {
                 </Link>
               ))}
             </div>
+            <Pagination
+              page={safePage}
+              totalPages={totalPages}
+              onChange={goToPage}
+              className="mt-10"
+            />
+            </>
           )}
         </section>
       </main>

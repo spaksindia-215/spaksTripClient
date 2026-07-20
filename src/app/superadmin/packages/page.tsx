@@ -9,6 +9,8 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
+import { pageSlice, pageCount } from "@/lib/pagination";
 import { useToast } from "@/components/ui/Toast";
 import { adminClient, type AdminPackage, type AdminPackageDetail, type AdminEnquiry, type PackageComparison } from "@/lib/adminClient";
 import PackageTemplateModal, { TEMPLATE_KINDS } from "@/components/superadmin/PackageTemplateModal";
@@ -192,6 +194,7 @@ export default function AdminPackagesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [kindFilter, setKindFilter] = useState<string>("");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewPkg, setReviewPkg] = useState<AdminPackage | null>(null);
   const [editing, setEditing] = useState<AdminPackageDetail | null>(null);
@@ -237,7 +240,8 @@ export default function AdminPackagesPage() {
     } finally { setEditLoadingId(null); }
   };
 
-  // Search is client-side over the loaded page (title, destinations, author).
+  // Search is client-side over the full set (title, destinations, author) —
+  // adminClient.packages.list drains every page, so this is not a partial search.
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return packages;
@@ -245,6 +249,15 @@ export default function AdminPackagesPage() {
       [p.title, p.route.destinations.join(" "), authorName(p) ?? ""].join(" ").toLowerCase().includes(q),
     );
   }, [packages, query]);
+
+  // A new search narrows to a different result set — restart at page 1. Not reset
+  // on reload, so activating/suspending a row keeps the admin's place.
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  const totalPages = pageCount(visible.length);
+  const safePage = Math.min(page, totalPages);
 
   if (session === "checking") return <div className="p-8 text-[14px] text-ink-muted">Checking session…</div>;
   if (session === "out") {
@@ -331,25 +344,41 @@ export default function AdminPackagesPage() {
 
       {!loading && tab === "templates" && (
         <div className="mt-5 grid gap-3">
-          <p className="text-[12px] font-semibold text-ink-muted">{visible.length} listing{visible.length === 1 ? "" : "s"}</p>
+          <p className="text-[12px] font-semibold text-ink-muted">
+            {visible.length} listing{visible.length === 1 ? "" : "s"}
+            {totalPages > 1 && ` · page ${safePage} of ${totalPages}`}
+          </p>
           {visible.length === 0 ? (
             <EmptyState
               title="No listings in this view"
               subtitle={query ? "Try a different search or clear the filters." : "Create a listing — it goes live immediately and partners can price it from their dashboard."}
               cta={!query ? <Button variant="accent" onClick={() => setFormOpen(true)}>+ New Listing</Button> : undefined}
             />
-          ) : visible.map((p) => (
-            <PackageRow
-              key={p.id}
-              p={p}
-              busy={busyId === p.id}
-              editing={editLoadingId === p.id}
-              onReview={setReviewPkg}
-              onEdit={openEdit}
-              onSetStatus={setStatus}
-              onDelete={deletePkg}
-            />
-          ))}
+          ) : (
+            <>
+              {pageSlice(visible, safePage).map((p) => (
+                <PackageRow
+                  key={p.id}
+                  p={p}
+                  busy={busyId === p.id}
+                  editing={editLoadingId === p.id}
+                  onReview={setReviewPkg}
+                  onEdit={openEdit}
+                  onSetStatus={setStatus}
+                  onDelete={deletePkg}
+                />
+              ))}
+              <Pagination
+                page={safePage}
+                totalPages={totalPages}
+                onChange={(p) => {
+                  setPage(p);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="mt-4"
+              />
+            </>
+          )}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { api, ApiError } from "@/lib/api";
+import { fetchAllPages, type PageInfo } from "@/lib/pagination";
 import type { UserRole, UserStatus } from "@/lib/authClient";
 
 export type MarkupRule = { type: "percent" | "flat"; value: number; cap?: number };
@@ -204,16 +205,20 @@ export const adminClient = {
 
   // ── Unified partner-listing review queue (all verticals) ──────────────────────
   listings: {
+    // Drains every page: the admin dashboard merges this with the package list
+    // and sorts the union by date, so it needs the complete set before paging.
     async list(params: { status?: string; type?: string } = {}): Promise<AdminListing[]> {
-      const sp = new URLSearchParams();
-      if (params.status) sp.set("status", params.status);
-      if (params.type) sp.set("type", params.type);
-      const qs = sp.toString();
-      const res = await api<{ items: AdminListing[] }>(
-        `/api/admin/listings${qs ? `?${qs}` : ""}`,
-        { skipRefresh: true },
-      );
-      return res.items;
+      return fetchAllPages<AdminListing>(async (page, limit) => {
+        const sp = new URLSearchParams();
+        if (params.status) sp.set("status", params.status);
+        if (params.type) sp.set("type", params.type);
+        sp.set("page", String(page));
+        sp.set("limit", String(limit));
+        return api<{ items: AdminListing[]; pagination: PageInfo }>(
+          `/api/admin/listings?${sp.toString()}`,
+          { skipRefresh: true },
+        );
+      });
     },
     async approve(type: string, id: string): Promise<void> {
       await api(`/api/admin/listings/${type}/${id}/approve`, { method: "POST", skipRefresh: true });
@@ -232,12 +237,18 @@ export const adminClient = {
 
   // ── Marketplace packages (fixed templates + moderation + leads) ───────────────
   packages: {
+    // Drains every page — see the note on listings.list above.
     async list(filters: { kind?: string; origin?: string; status?: string } = {}): Promise<AdminPackage[]> {
-      const sp = new URLSearchParams();
-      for (const [k, v] of Object.entries(filters)) if (v) sp.set(k, String(v));
-      const qs = sp.toString();
-      const res = await api<{ items: AdminPackage[] }>(`/api/admin/packages${qs ? `?${qs}` : ""}`, { skipRefresh: true });
-      return res.items;
+      return fetchAllPages<AdminPackage>(async (page, limit) => {
+        const sp = new URLSearchParams();
+        for (const [k, v] of Object.entries(filters)) if (v) sp.set(k, String(v));
+        sp.set("page", String(page));
+        sp.set("limit", String(limit));
+        return api<{ items: AdminPackage[]; pagination: PageInfo }>(
+          `/api/admin/packages?${sp.toString()}`,
+          { skipRefresh: true },
+        );
+      });
     },
     // Multipart create of a platform template: a `data` JSON field + `images` files.
     async createTemplate(form: FormData): Promise<AdminPackage> {
