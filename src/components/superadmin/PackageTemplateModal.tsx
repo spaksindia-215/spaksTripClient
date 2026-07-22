@@ -21,6 +21,7 @@ import {
 } from "@/lib/packageTemplateHydrate";
 import LocationPickerField from "@/components/partner/LocationPickerField";
 import StateSelect from "@/components/ui/StateSelect";
+import CountrySelect from "@/components/ui/CountrySelect";
 import ItineraryDescriptionField from "@/components/partner/ItineraryDescriptionField";
 import { PACKAGE_KIND_SPECS } from "@/lib/packageKindSpecs";
 import type { PackageKind } from "@/lib/packagesClient";
@@ -101,8 +102,9 @@ import {
 
 // §5.1 — Superadmin creates fixed platform listings (marketplace Package docs,
 // origin "platform"). Shared by the Packages surface and the per-type "Add"
-// buttons in the Partner Listings tab. `initialKind`/`lockKind` let a caller
-// prefill (and optionally freeze) the kind for a specific listing type.
+// buttons in the Partner Listings tab. `initialKind` lets a caller open the form
+// on a specific listing type; the admin can still switch Type and the form swaps
+// to that vertical's fields.
 //
 // Every kind captures the SAME field set a partner fills in for their own
 // listing — sightseeing/tour/tour_package/cruise/taxi_package reuse the actual
@@ -142,19 +144,49 @@ function jsonPayload(form: FormData, field: "data" | "payload"): Record<string, 
   return JSON.parse(form.get(field) as string) as Record<string, unknown>;
 }
 
+// Location is scope-exclusive. A domestic listing is placed by Indian state — a
+// field on each kind's own partner form, rendered inside that kind's section. An
+// international one is placed by country + a free-text region (state/province/
+// emirate/prefecture — too many shapes worldwide to enumerate), which every kind
+// shares, so those two live on the modal and render next to the Scope selector.
+// The server (validatePackage) drops whichever half doesn't match the scope, so a
+// listing flipped between scopes never keeps a stale location.
+function InternationalLocationFields({
+  country, setCountry, region, setRegion,
+}: {
+  country: string;
+  setCountry: (v: string) => void;
+  region: string;
+  setRegion: (v: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <CountrySelect value={country} onChange={setCountry} />
+      <Input
+        label="State / Province / Region"
+        value={region}
+        onChange={(e) => setRegion(e.target.value)}
+        placeholder="e.g. Bali, Dubai, Bangkok"
+      />
+    </div>
+  );
+}
+
 export default function PackageTemplateModal({
   open,
   onClose,
   onSaved,
   initialKind = "holiday",
-  lockKind = false,
   editing = null,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  // Which type the form opens on. Only a starting point — the admin can switch the
+  // Type dropdown at any time while creating and the whole form swaps to that
+  // vertical's fields (each kind keeps its own form state, so switching back and
+  // forth loses nothing).
   initialKind?: string;
-  lockKind?: boolean;
   // When set, the modal edits this existing listing (prefilled) and PUTs on save
   // instead of creating. The kind is frozen (a listing can't change vertical).
   editing?: AdminPackageDetail | null;
@@ -164,6 +196,9 @@ export default function PackageTemplateModal({
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState(initialKind);
   const [scope, setScope] = useState("domestic");
+  // International location (domestic listings use the per-kind Indian state field).
+  const [country, setCountry] = useState("");
+  const [region, setRegion] = useState("");
   const [destinations, setDestinations] = useState("");
   const [days, setDays] = useState("4");
   const [nights, setNights] = useState("3");
@@ -195,6 +230,8 @@ export default function PackageTemplateModal({
     if (editing) {
       setKind(editing.kind);
       setScope(editing.scope === "international" ? "international" : "domestic");
+      setCountry(editing.country ?? "");
+      setRegion(editing.region ?? "");
       hydrateFromPackage(editing);
     } else {
       setKind(initialKind);
@@ -259,6 +296,7 @@ export default function PackageTemplateModal({
   }
 
   function resetAll() {
+    setScope("domestic"); setCountry(""); setRegion("");
     setTitle(""); setDestinations(""); setDescription(""); setHighlights("");
     setInclusions(""); setExclusions(""); setPrice(""); setImages(null);
     setSpecValues({}); setSpecChecklists({});
@@ -309,14 +347,28 @@ export default function PackageTemplateModal({
     } finally { setSaving(false); }
   }
 
+  // Location fields for the payload, keyed off Scope: an Indian state (taken from
+  // the kind's own form) for domestic, country + region for international. The
+  // server drops the half that doesn't match the scope, so sending only the right
+  // one keeps an edited listing from carrying both.
+  const geoFields = (formState: unknown): Record<string, unknown> =>
+    scope === "international"
+      ? { country: country || undefined, region: region.trim() || undefined }
+      : { state: formState };
+
   const save = async () => {
+    if (scope === "international" && !country) {
+      toast.push({ title: "Select a country", description: "An international listing needs the country it operates in.", tone: "warn" });
+      return;
+    }
+
     if (kind === "sightseeing") {
       const err = validateSightseeingForm(sForm);
       if (err) { toast.push({ title: "Please review the activity", description: err, tone: "warn" }); return; }
       const payload = jsonPayload(buildSightseeingFormData(sForm, { images: [] }), "data");
       delete payload.status;
       const { title: t, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc, currency: cur, ...specs } = payload;
-      await submitData({ title: t, kind, scope, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc, currency: cur, specs }, "Sightseeing listing created");
+      await submitData({ title: t, kind, scope, ...geoFields(undefined), description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc, currency: cur, specs }, "Sightseeing listing created");
       return;
     }
 
@@ -328,7 +380,7 @@ export default function PackageTemplateModal({
       const { title: t, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc, basedIn, coversCities, durationDays, durationNights, state: st, ...specs } = payload;
       await submitData({
         title: t, kind, scope, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc,
-        currency: tForm.currency, state: st,
+        currency: tForm.currency, ...geoFields(st),
         route: { origin: basedIn, destinations: coversCities, durationDays, durationNights },
         specs,
       }, "Tour listing created");
@@ -346,7 +398,7 @@ export default function PackageTemplateModal({
       await submitData({
         title: t, kind, scope, description: d, highlights: h, tags: tg,
         inclusions: customInclusions, exclusions: exc,
-        currency: pr.currency, referencePrice: pr.basePrice, state: st,
+        currency: pr.currency, referencePrice: pr.basePrice, ...geoFields(st),
         route,
         specs: {
           packageType: rest.packageType, difficultyLevel: rest.difficultyLevel,
@@ -371,7 +423,7 @@ export default function PackageTemplateModal({
       await submitData({
         title: t, kind, scope, description: d, highlights: h, tags: tg,
         inclusions: customInclusions, exclusions: exc,
-        currency: cur, referencePrice, state: st,
+        currency: cur, referencePrice, ...geoFields(st),
         route,
         specs: {
           // origin/destination pins ride in specs (Package.route is a fixed shape)
@@ -392,7 +444,7 @@ export default function PackageTemplateModal({
       const { cruiseName: t, description: d, highlights: h, tags: tg, vessel, route, cabins, shipAmenities, diningOptions, mealsIncluded, departures, cancellationPolicy, boardingAge, cruiseType } = payload;
       const r = (route ?? {}) as Record<string, unknown>;
       await submitData({
-        title: t, kind, scope, description: d, highlights: h, tags: tg,
+        title: t, kind, scope, ...geoFields(undefined), description: d, highlights: h, tags: tg,
         inclusions: [], exclusions: [],
         currency: cForm.currency,
         route: { origin: r.departurePort, destinations: r.arrivalPort ? [r.arrivalPort] : [], durationDays: r.durationDays, durationNights: r.durationNights },
@@ -412,7 +464,7 @@ export default function PackageTemplateModal({
       const pr = (pricing ?? {}) as Record<string, unknown>;
       await submitData({
         title: t, kind, scope, description: d, highlights: h, tags: tg, inclusions: inc, exclusions: exc,
-        currency: pr.currency, referencePrice: pr.basePrice, state: st,
+        currency: pr.currency, referencePrice: pr.basePrice, ...geoFields(st),
         route: { origin: r.origin, destinations: r.destinations, durationDays: r.durationDays, durationNights: r.durationNights },
         specs: {
           // originLocation rides in specs (Package.route is a fixed shape) so the
@@ -428,7 +480,7 @@ export default function PackageTemplateModal({
     // transfer, self_drive, islandhopper, visa, bundle) — no vertical fields.
     if (!title.trim()) { toast.push({ title: "Enter a title", tone: "warn" }); return; }
     await submitData({
-      title: title.trim(), kind, scope,
+      title: title.trim(), kind, scope, ...geoFields(undefined),
       description: description.trim() || undefined,
       highlights: highlights.split("\n").map((x) => x.trim()).filter(Boolean),
       inclusions: inclusions.split("\n").map((x) => x.trim()).filter(Boolean),
@@ -441,30 +493,36 @@ export default function PackageTemplateModal({
 
   return (
     <Modal open={open} onClose={onClose}
-      title={editingId ? `Edit ${kindLabel(kind)} listing` : lockKind ? `New ${kindLabel(kind)} listing` : "New listing"} size="lg"
+      title={editingId ? `Edit ${kindLabel(kind)} listing` : `New ${kindLabel(kind)} listing`} size="lg"
       footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant="accent" onClick={save} loading={saving}>{editingId ? "Save changes" : "Create"}</Button></div>}>
       <div className="flex flex-col gap-3 p-1">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Select label="Type" value={kind} onChange={(e) => setKind(e.target.value)} disabled={lockKind || !!editingId}>
+          {/* Switching Type swaps the whole form to that vertical's fields. Frozen
+              only while editing — an existing listing can't change vertical. */}
+          <Select label="Type" value={kind} onChange={(e) => setKind(e.target.value)} disabled={!!editingId}>
             {TEMPLATE_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
           </Select>
           <Select label="Scope" value={scope} onChange={(e) => setScope(e.target.value)}><option value="domestic">Domestic</option><option value="international">International</option></Select>
         </div>
+
+        {scope === "international" && (
+          <InternationalLocationFields country={country} setCountry={setCountry} region={region} setRegion={setRegion} />
+        )}
 
         {kind === "sightseeing" && (
           <SightseeingFields sForm={sForm} setSField={setSField} toggleSDay={toggleSDay} />
         )}
 
         {kind === "tour" && (
-          <TourFields tForm={tForm} setTForm={setTForm} setTField={setTField} toggleTDay={toggleTDay} />
+          <TourFields scope={scope} tForm={tForm} setTForm={setTForm} setTField={setTField} toggleTDay={toggleTDay} />
         )}
 
         {kind === "tour_package" && (
-          <TourPackageFields tpForm={tpForm} setTpForm={setTpForm} setTpField={setTpField} />
+          <TourPackageFields scope={scope} tpForm={tpForm} setTpForm={setTpForm} setTpField={setTpField} />
         )}
 
         {kind === "holiday" && (
-          <HolidayPackageFields hForm={hForm} setHForm={setHForm} setHField={setHField} />
+          <HolidayPackageFields scope={scope} hForm={hForm} setHForm={setHForm} setHField={setHField} />
         )}
 
         {kind === "cruise" && (
@@ -472,7 +530,7 @@ export default function PackageTemplateModal({
         )}
 
         {kind === "taxi_package" && (
-          <TaxiPackageFields xpForm={xpForm} setXpForm={setXpForm} setXpField={setXpField} />
+          <TaxiPackageFields scope={scope} xpForm={xpForm} setXpForm={setXpForm} setXpField={setXpField} />
         )}
 
         {kind !== "sightseeing" && kind !== "tour" && kind !== "tour_package" && kind !== "holiday" && kind !== "cruise" && kind !== "taxi_package" && (
@@ -674,8 +732,11 @@ function SightseeingFields({
 
 // ── Tour ─────────────────────────────────────────────────────────────────────
 function TourFields({
-  tForm, setTForm, setTField, toggleTDay,
+  scope, tForm, setTForm, setTField, toggleTDay,
 }: {
+  // Drives the location field: the Indian state below only applies to a domestic
+  // listing (an international one is placed by the modal's country + region).
+  scope: string;
   tForm: TourFormState;
   setTForm: (fn: (c: TourFormState) => TourFormState) => void;
   setTField: <K extends keyof TourFormState>(key: K, value: TourFormState[K]) => void;
@@ -697,7 +758,7 @@ function TourFields({
       <FieldSection title="Location & Duration">
         <Input label="Based in (city)" value={tForm.basedIn} onChange={(e) => setTField("basedIn", e.target.value)} />
         <Input label="Covers cities (comma separated)" value={tForm.coversCities} onChange={(e) => setTField("coversCities", e.target.value)} />
-        <StateSelect value={tForm.state} onChange={(v) => setTField("state", v)} />
+        {scope === "domestic" && <StateSelect value={tForm.state} onChange={(v) => setTField("state", v)} />}
         <LocationPickerField
           lat={tForm.latitude} lng={tForm.longitude}
           onChange={(v) => setTForm((c) => ({ ...c, latitude: v.lat, longitude: v.lng }))}
@@ -780,8 +841,9 @@ function TourFields({
 
 // ── Tour Package ─────────────────────────────────────────────────────────────
 function TourPackageFields({
-  tpForm, setTpForm, setTpField,
+  scope, tpForm, setTpForm, setTpField,
 }: {
+  scope: string;
   tpForm: TourPackageFormState;
   setTpForm: (fn: (c: TourPackageFormState) => TourPackageFormState) => void;
   setTpField: <K extends keyof TourPackageFormState>(key: K, value: TourPackageFormState[K]) => void;
@@ -805,7 +867,7 @@ function TourPackageFields({
       <FieldSection title="Route">
         <Input label="Origin" value={tpForm.origin} onChange={(e) => setTpField("origin", e.target.value)} />
         <Input label="Destinations (comma separated)" value={tpForm.destinations} onChange={(e) => setTpField("destinations", e.target.value)} />
-        <StateSelect value={tpForm.state} onChange={(v) => setTpField("state", v)} />
+        {scope === "domestic" && <StateSelect value={tpForm.state} onChange={(v) => setTpField("state", v)} />}
         <Input label="Duration (days)" type="number" value={tpForm.durationDays} onChange={(e) => setTpField("durationDays", e.target.value)} />
         <Input label="Duration (nights)" type="number" value={tpForm.durationNights} onChange={(e) => setTpField("durationNights", e.target.value)} />
       </FieldSection>
@@ -885,8 +947,9 @@ function TourPackageFields({
 // Same shape as TourPackageFields — the only real difference is room-tier
 // pricing (Standard/Deluxe/Luxury × meal plan) instead of one flat price.
 function HolidayPackageFields({
-  hForm, setHForm, setHField,
+  scope, hForm, setHForm, setHField,
 }: {
+  scope: string;
   hForm: HolidayPackageFormState;
   setHForm: (fn: (c: HolidayPackageFormState) => HolidayPackageFormState) => void;
   setHField: <K extends keyof HolidayPackageFormState>(key: K, value: HolidayPackageFormState[K]) => void;
@@ -920,7 +983,7 @@ function HolidayPackageFields({
             onChange={(v) => setHForm((c) => ({ ...c, destinationLat: v.lat, destinationLng: v.lng, destinationAddress: v.address ?? c.destinationAddress }))}
           />
         </div>
-        <StateSelect value={hForm.state} onChange={(v) => setHField("state", v)} />
+        {scope === "domestic" && <StateSelect value={hForm.state} onChange={(v) => setHField("state", v)} />}
         <Input label="Duration (days)" type="number" value={hForm.durationDays} onChange={(e) => setHField("durationDays", e.target.value)} />
         <Input label="Duration (nights)" type="number" value={hForm.durationNights} onChange={(e) => setHField("durationNights", e.target.value)} />
       </FieldSection>
@@ -1108,8 +1171,9 @@ function CruiseFields({
 
 // ── Taxi Package ─────────────────────────────────────────────────────────────
 function TaxiPackageFields({
-  xpForm, setXpForm, setXpField,
+  scope, xpForm, setXpForm, setXpField,
 }: {
+  scope: string;
   xpForm: TaxiPackageFormState;
   setXpForm: (fn: (c: TaxiPackageFormState) => TaxiPackageFormState) => void;
   setXpField: <K extends keyof TaxiPackageFormState>(key: K, value: TaxiPackageFormState[K]) => void;
@@ -1133,7 +1197,7 @@ function TaxiPackageFields({
             onChange={(v) => setXpForm((c) => ({ ...c, originLat: v.lat, originLng: v.lng, originAddress: v.address ?? c.originAddress }))}
           />
         </div>
-        <StateSelect value={xpForm.state} onChange={(v) => setXpField("state", v)} />
+        {scope === "domestic" && <StateSelect value={xpForm.state} onChange={(v) => setXpField("state", v)} />}
         <Input label="Total distance (km)" type="number" value={xpForm.totalKm} onChange={(e) => setXpField("totalKm", e.target.value)} />
         <Input label="Duration (days)" type="number" value={xpForm.durationDays} onChange={(e) => setXpField("durationDays", e.target.value)} />
         <Input label="Duration (nights)" type="number" value={xpForm.durationNights} onChange={(e) => setXpField("durationNights", e.target.value)} />

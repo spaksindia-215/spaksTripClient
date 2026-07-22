@@ -72,6 +72,10 @@ export type PackageSummary = {
   // Indian state this listing operates in (domestic-only) — drives state-wise
   // browse categories on the national holiday/tour/taxi-package pages.
   state?: string;
+  // The international counterpart of `state`: destination country plus its
+  // state/province/region. Set only on international-scope listings.
+  country?: string;
+  region?: string;
   route: { origin?: string; destinations: string[]; durationDays: number; durationNights: number };
   referencePrice?: number;
   currency: string;
@@ -248,6 +252,7 @@ export function listPackages(filters: {
   q?: string;
   destination?: string;
   state?: string;
+  country?: string;
   page?: number;
   limit?: number;
 } = {}): Promise<{ items: PackageSummary[]; pagination: Pagination }> {

@@ -1013,8 +1013,9 @@ export default function SuperadminPage() {
               // collection) and will never show a Package template, so send the
               // admin straight to where it actually lives, already unfiltered.
               onSaved={() => { setTemplateOpen(false); router.push("/superadmin/packages?status="); }}
+              // Opens on the type whose tab the admin is in, but stays switchable —
+              // picking another type swaps the form to that vertical's fields.
               initialKind={TEMPLATE_KIND_FOR[listingType] ?? "holiday"}
-              lockKind={Boolean(TEMPLATE_KIND_FOR[listingType])}
             />
           </section>
         ) : (

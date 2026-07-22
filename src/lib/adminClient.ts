@@ -379,7 +379,11 @@ export type AdminPackageDetail = AdminPackage & {
   description?: string;
   highlights?: string[];
   tags?: string[];
+  // Location — scope-exclusive: `state` on a domestic listing, `country` + `region`
+  // on an international one (see validatePackage on the server).
   state?: string;
+  country?: string;
+  region?: string;
   inclusions?: string[];
   exclusions?: string[];
   itinerary?: unknown[];
