@@ -36,7 +36,7 @@ export default function WeddingContent() {
                   Wedding Management Services In Delhi, Gurugram, Noida & NCR India
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
-                  SpaksTrip Events is a popular Wedding Organiser in Delhi. We specialize in providing exceptional
+                  ElitesYatra Events is a popular Wedding Organiser in Delhi. We specialize in providing exceptional
                   wedding management services across India. With more than 10 years of experience and a dedicated
                   team of experts, we ensure that every wedding function becomes an unforgettable and cherished
                   experience. Our meticulous planning and flawless execution ensure that your wedding is filled
@@ -53,7 +53,7 @@ export default function WeddingContent() {
 
               <div>
                 <h2 className="text-2xl font-bold text-[#0E1E3A] mb-3">
-                  Why SpaksTrip Events Is Your Premier Wedding Planner in Delhi
+                  Why ElitesYatra Events Is Your Premier Wedding Planner in Delhi
                 </h2>
                 <ul className="flex flex-col gap-2 list-disc list-inside mb-5">
                   {USP_LIST.map((item) => (
@@ -71,10 +71,10 @@ export default function WeddingContent() {
 
               <div>
                 <h2 className="text-2xl font-bold text-[#0E1E3A] mb-3">
-                  Why Choose SpaksTrip Events For Your Wedding
+                  Why Choose ElitesYatra Events For Your Wedding
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
-                  With SpaksTrip Events, you can rest assured that you will get the event of your dreams — putting
+                  With ElitesYatra Events, you can rest assured that you will get the event of your dreams — putting
                   your ideas together and adding a professional touch. We will make sure that any event you plan
                   with us will be stress-free, so you can relax and enjoy the build-up.
                 </p>

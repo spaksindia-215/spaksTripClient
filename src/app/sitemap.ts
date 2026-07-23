@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://www.spakstrip.com";
+  const baseUrl = "https://www.elitesyatra.com";
   const lastmod = new Date("2026-06-29");
 
   const staticRoutes: MetadataRoute.Sitemap = [

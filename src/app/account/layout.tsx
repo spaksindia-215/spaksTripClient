@@ -5,7 +5,7 @@ import BackToTop from "@/components/landing/BackToTop";
 import AccountSidebar from "@/components/account/AccountSidebar";
 
 export const metadata: Metadata = {
-  title: { default: "My Account | SpaksTrip", template: "%s | SpaksTrip" },
+  title: { default: "My Account | ElitesYatra", template: "%s | ElitesYatra" },
 };
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {

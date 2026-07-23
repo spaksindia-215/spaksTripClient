@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { label: "GST Details", href: "/account/gst-details" },
   { label: "Agency ITR Declaration", href: "/account/itr-declaration" },
   { label: "Agency PAN Declaration", href: "/account/pan-declaration" },
-  { label: "Spakstrip Bank Details", href: "/account/spakstrip-bank" },
+  { label: "ElitesYatra Bank Details", href: "/account/spakstrip-bank" },
   { label: "PG Failure Queue", href: "/account/pg-failure-queue" },
   { label: "Daily Sales Report", href: "/account/daily-sales-report" },
   { label: "Sales Report", href: "/account/sales-report" },

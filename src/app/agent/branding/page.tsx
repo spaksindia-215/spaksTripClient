@@ -9,7 +9,7 @@ import { agentClient, type AgentBranding, type BrandFont, BRAND_FONTS } from "@/
 import { PREVIEW_MESSAGE_TYPE, type PreviewThemePayload } from "@/lib/theme/preview";
 
 const DEFAULT_COLOR = "#185FA5";
-const APEX_DOMAIN = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "spakstrip.com";
+const APEX_DOMAIN = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "elitesyatra.com";
 
 const FONT_LABELS: Record<BrandFont, string> = {
   default: "Platform default",

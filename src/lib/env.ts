@@ -28,7 +28,7 @@ const schema = z.object({
   NEXT_PUBLIC_API_BASE: originUrl("NEXT_PUBLIC_API_BASE"),
   NEXT_PUBLIC_APEX_DOMAIN: z
     .string()
-    .min(1, "NEXT_PUBLIC_APEX_DOMAIN is required (e.g. localhost or spakstrip.com)"),
+    .min(1, "NEXT_PUBLIC_APEX_DOMAIN is required (e.g. localhost or elitesyatra.com)"),
   NEXT_PUBLIC_API_MODE: z.enum(["mock", "tbo"]).default("mock"),
   MONGO_URI: z.string().optional(),
   MONGODB_URI: z.string().optional(),

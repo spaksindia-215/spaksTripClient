@@ -5,7 +5,7 @@ import BackToTop from "@/components/landing/BackToTop";
 import InsuranceRenewContent from "@/components/insurance/InsuranceRenewContent";
 
 export const metadata: Metadata = {
-  title: "Renew Insurance | SpaksTrip",
+  title: "Renew Insurance | ElitesYatra",
   description: "Renew your car, health, or two-wheeler insurance policy online. Quick renewal with reference ID confirmation within 24 hours.",
 };
 

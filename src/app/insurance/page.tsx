@@ -17,7 +17,7 @@ export default function InsurancePage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Travel Insurance"
-        url="https://www.spakstrip.com/insurance"
+        url="https://www.elitesyatra.com/insurance"
         description="Protect your trips with comprehensive travel insurance."
       />
       <Header />

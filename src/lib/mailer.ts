@@ -28,7 +28,7 @@ function buildTransport() {
 }
 
 export async function sendFlightConfirmation(data: FlightConfirmationData): Promise<void> {
-  const from = process.env.EMAIL_FROM ?? "SpaksTrip <noreply@spakstrip.com>";
+  const from = process.env.EMAIL_FROM ?? "ElitesYatra <noreply@elitesyatra.com>";
   const subject = flightConfirmationSubject(data);
 
   const transport = buildTransport();

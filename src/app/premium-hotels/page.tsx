@@ -20,7 +20,7 @@ export default function PremiumHotelsPage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Premium Hotel Booking"
-        url="https://www.spakstrip.com/premium-hotels"
+        url="https://www.elitesyatra.com/premium-hotels"
         description="Find and book 4 & 5 star hotels and luxury resorts online."
       />
       <Header />

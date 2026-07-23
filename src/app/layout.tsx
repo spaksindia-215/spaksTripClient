@@ -45,8 +45,8 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   return {
-    title:       "SpaksTrip — Flights, Hotels, Holidays & More",
-    description: "Book flights, hotels, holiday packages, visas and more. Powered by SpaksTrip.",
+    title:       SITE_CONFIG.title,
+    description: SITE_CONFIG.description,
     icons:       { icon: "/logo.svg" },
     verification: {
       google: SITE_CONFIG.googleSearchConsoleVerification,

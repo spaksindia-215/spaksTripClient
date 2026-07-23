@@ -30,7 +30,7 @@ export default function AboutUs() {
             About Us
           </h2>
           <p className="mt-6 text-lg leading-relaxed text-zinc-500">
-            We&apos;re thrilled to have you on board. At Spaks Trip, we specialize
+            We&apos;re thrilled to have you on board. At ElitesYatra, we specialize
             in crafting unforgettable journeys — whether you&apos;re exploring
             the charm of India or venturing across the globe.
           </p>

@@ -532,7 +532,7 @@ export default function TaxiListingForm() {
             Partner Benefits
           </p>
           <h2 className="mt-3 text-2xl font-black leading-tight">
-            Bring your fleet onto SpaksTrip without changing the current taxi search flow.
+            Bring your fleet onto ElitesYatra without changing the current taxi search flow.
           </h2>
           <ul className="mt-5 space-y-3 text-sm text-white/80">
             {PAGE_HIGHLIGHTS.map((highlight) => (

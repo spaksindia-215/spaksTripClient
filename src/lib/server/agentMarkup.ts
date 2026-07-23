@@ -11,8 +11,8 @@ export type { TwoTierPricing, MarkupRule };
 export { AgentPricingUnavailableError };
 
 // Pricing is intentionally single-tier:
-//   spakstrip.com (apex)       → TBO fare unchanged (platform margin comes from TBO wholesale rate)
-//   agent.spakstrip.com (sub)  → TBO fare + agent markup  (L2 only)
+//   elitesyatra.com (apex)       → TBO fare unchanged (platform margin comes from TBO wholesale rate)
+//   agent.elitesyatra.com (sub)  → TBO fare + agent markup  (L2 only)
 //
 // There is no platform-level L1 surcharge applied at runtime.
 // The superadmin Platform Markup config exists for future use but is NOT wired here.

@@ -31,8 +31,8 @@ export default function Logo({ variant = "footer", className }: LogoProps) {
   // On an agent subdomain, show the agent's logo + name; on apex, the platform's.
   const isAgent = Boolean(companyName || logo);
   const src = (variant === "footer" ? logoDark ?? logo : logo) ?? "/logo.png";
-  const alt = isAgent ? `${companyName ?? "Agency"} logo` : "Spakstrip logo";
-  const label = isAgent ? `${companyName ?? "Agency"} home` : "Spakstrip home";
+  const alt = isAgent ? `${companyName ?? "Agency"} logo` : "ElitesYatra logo";
+  const label = isAgent ? `${companyName ?? "Agency"} home` : "ElitesYatra home";
 
   return (
     <Link href="/" aria-label={label} className={cn(styles.link, className)}>

@@ -99,7 +99,7 @@ export default function SignInGateModal({
         </Button>
 
         <p className="text-center text-[12px] text-ink-muted">
-          New to SpaksTrip?{" "}
+          New to ElitesYatra?{" "}
           <Link href="/auth" className="font-semibold text-brand-700 hover:underline">
             Create an account
           </Link>{" "}

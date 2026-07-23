@@ -16,9 +16,9 @@ export default function SideNav({ nav }: { nav: NavItem[] }) {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-border-soft bg-surface md:flex md:flex-col">
       <div className="flex h-14 items-center gap-2 border-b border-border-soft px-5">
-        <Link href="/" className="flex items-center gap-2" aria-label="SpaksTrip home">
-          <img src="/logo.png" alt="SpaksTrip" className="h-8 w-8 object-contain" />
-          <span className="text-base font-semibold text-ink">SpaksTrip</span>
+        <Link href="/" className="flex items-center gap-2" aria-label="ElitesYatra home">
+          <img src="/logo.png" alt="ElitesYatra" className="h-8 w-8 object-contain" />
+          <span className="text-base font-semibold text-ink">ElitesYatra</span>
         </Link>
       </div>
 
@@ -52,7 +52,7 @@ export default function SideNav({ nav }: { nav: NavItem[] }) {
           href="/"
           className="flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
         >
-          <span aria-hidden>←</span> Browse SpaksTrip
+          <span aria-hidden>←</span> Browse ElitesYatra
         </Link>
       </div>
     </aside>

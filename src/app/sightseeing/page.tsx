@@ -111,7 +111,7 @@ export default function SightseeingLandingPage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Sightseeing"
-        url="https://www.spakstrip.com/sightseeing"
+        url="https://www.elitesyatra.com/sightseeing"
         description="Book guided sightseeing tours in popular destinations."
       />
       <Header />

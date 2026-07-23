@@ -8,7 +8,7 @@ const REVIEWS: Review[] = [
     event: "Wedding Planner",
     rating: 5,
     comment:
-      "Absolutely magical experience! Every detail was handled with such care. Our wedding day was beyond what we had imagined. Highly recommend SpaksTrip Events!",
+      "Absolutely magical experience! Every detail was handled with such care. Our wedding day was beyond what we had imagined. Highly recommend ElitesYatra Events!",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
   },
   {

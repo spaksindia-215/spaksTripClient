@@ -7,7 +7,7 @@ import { generatePageMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = generatePageMetadata(
   "Terms & Conditions",
-  "Read SpaksTrip's terms and conditions for using our travel booking services.",
+  "Read ElitesYatra's terms and conditions for using our travel booking services.",
   "/terms_conditions"
 );
 

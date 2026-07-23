@@ -17,7 +17,7 @@ export default function TrainSearchPage() {
     <div className="min-h-screen bg-white">
       <ServiceSchema
         serviceType="Train Booking"
-        url="https://www.spakstrip.com/train/search"
+        url="https://www.elitesyatra.com/train/search"
         description="Book train tickets for domestic travel across India."
       />
       <Header />

@@ -20,7 +20,7 @@ import {
   type ProductType,
 } from "@/lib/agentClient";
 
-const APEX_DOMAIN = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "spakstrip.com";
+const APEX_DOMAIN = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "elitesyatra.com";
 
 const PRODUCT_TYPES: ProductType[] = ["flight", "hotel", "taxi", "tour", "cruise", "package"];
 

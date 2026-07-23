@@ -627,7 +627,7 @@ export default function AuthForm({ initialMode = "signin", initialRole = "custom
               className="mb-1 text-[21px] font-bold leading-tight tracking-tight sm:text-[24px]"
               style={{ fontFamily: "'Poppins',system-ui,sans-serif", color: "#0c2042" }}
             >
-              {mode === "signin" ? "Sign in to SpaksTrip" : "Create your account"}
+              {mode === "signin" ? "Sign in to ElitesYatra" : "Create your account"}
             </h1>
             <p className="hidden max-w-[42ch] text-[13px] leading-relaxed sm:block" style={{ color: "#3f5170" }}>
               {mode === "signin"
@@ -700,7 +700,7 @@ export default function AuthForm({ initialMode = "signin", initialRole = "custom
             <p className="mt-3 text-center text-[13px]" style={{ color: "#3f5170" }}>
               {mode === "signin" ? (
                 <>
-                  New to SpaksTrip?{" "}
+                  New to ElitesYatra?{" "}
                   <button type="button" onClick={() => switchMode("register")} className="font-semibold hover:underline" style={{ color: "#F2611C" }}>
                     Create an account
                   </button>

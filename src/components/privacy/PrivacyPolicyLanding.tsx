@@ -241,10 +241,10 @@ const privacySections: PrivacySection[] = [
                   Email
                 </p>
                 <a
-                  href="mailto:spakstrip@gmail.com"
+                  href="mailto:support@elitesyatra.com"
                   className="mt-2 block text-sm font-semibold text-[#E0382E] transition-colors hover:text-orange-700"
                 >
-                  spakstrip@gmail.com
+                  support@elitesyatra.com
                 </a>
               </div>
             </div>

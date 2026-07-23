@@ -7,7 +7,7 @@ import { generatePageMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = generatePageMetadata(
   "Privacy Policy",
-  "Learn how SpaksTrip collects, uses, and protects your personal information.",
+  "Learn how ElitesYatra collects, uses, and protects your personal information.",
   "/privacy_policy"
 );
 

@@ -36,7 +36,7 @@ export function flightConfirmationHtml(d: FlightConfirmationData): string {
     .join("");
 
   // White-label: agent logo + name in the header when branding is supplied.
-  const brandName = d.brand?.companyName ? escapeHtml(d.brand.companyName) : "SpaksTrip";
+  const brandName = d.brand?.companyName ? escapeHtml(d.brand.companyName) : "ElitesYatra";
   const brandMark = d.brand?.logo
     ? `<img src="${escapeHtml(d.brand.logo)}" alt="${brandName}" style="max-height:44px;max-width:180px;object-fit:contain;" />`
     : `<div style="font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">${brandName}</div>`;
@@ -147,7 +147,7 @@ export function flightConfirmationHtml(d: FlightConfirmationData): string {
 }
 
 export function flightConfirmationText(d: FlightConfirmationData): string {
-  const brandName = d.brand?.companyName || "SpaksTrip";
+  const brandName = d.brand?.companyName || "ElitesYatra";
   return [
     `BOOKING CONFIRMED — ${brandName}`,
     "",

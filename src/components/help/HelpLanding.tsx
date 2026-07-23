@@ -77,7 +77,7 @@ export default function HelpLanding() {
               <ContactInfoRow
                 icon={<MailIcon />}
                 label="Email Address"
-                value="spakstrip@gmail.com"
+                value="support@elitesyatra.com"
               />
               <ContactInfoRow
                 icon={<PhoneIcon />}
@@ -161,7 +161,7 @@ export default function HelpLanding() {
         <section className="mt-16 sm:mt-20">
           <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_24px_-18px_rgba(15,23,42,0.22)]">
             <iframe
-              title="SpaksTrip location map"
+              title="ElitesYatra location map"
               src="https://www.google.com/maps?q=E-38,%20Budh%20Vihar,%20Badarpur,%20New%20Delhi%20110044&z=14&output=embed"
               className="h-[360px] w-full border-0 sm:h-[460px] lg:h-[540px]"
               loading="lazy"

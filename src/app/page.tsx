@@ -6,7 +6,6 @@ import Footer from "@/components/landing/Footer";
 import Header from "@/components/landing/Header";
 import HeroCarousel from "@/components/landing/HeroCarousel";
 import RecentSearches from "@/components/landing/RecentSearches";
-import Testimonials from "@/components/landing/Testimonials";
 import TopHotelDeals from "@/components/landing/TopHotelDeals";
 import WhyChooseUs from "@/components/landing/WhyChooseUs";
 import { HomepageSchema } from "@/lib/seo/schemas";
@@ -32,7 +31,6 @@ export default function Home() {
         <WhyChooseUs />
         <TopHotelDeals />
         <AboutUs />
-        <Testimonials />
       </main>
       <Footer />
       <BackToTop />

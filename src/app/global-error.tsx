@@ -22,8 +22,8 @@ export default function GlobalError({
       <body className="min-h-full bg-[#f6f7fb] text-[#0e1e3a]">
         <main className="min-h-screen flex flex-col items-center justify-center px-4 py-20 text-center">
           {/* Logo */}
-          <a href="/" aria-label="SpaksTrip home" className="mb-10 block">
-            <img src="/logo.png" alt="SpaksTrip" className="h-14 w-14 object-contain" />
+          <a href="/" aria-label="ElitesYatra home" className="mb-10 block">
+            <img src="/logo.png" alt="ElitesYatra" className="h-14 w-14 object-contain" />
           </a>
 
           {/* Icon */}

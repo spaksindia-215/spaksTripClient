@@ -265,7 +265,7 @@ function PaymentInner() {
     }
     if (booking.guestNationality !== "IN") {
       toast.push({
-        title: "Only Indian nationals can book through SpaksTrip.",
+        title: "Only Indian nationals can book through ElitesYatra.",
         tone: "warn",
       });
       return;
@@ -322,7 +322,7 @@ function PaymentInner() {
       order_id: orderId,
       amount: totalPaise,
       currency: "INR",
-      name: "SpaksTrip",
+      name: "ElitesYatra",
       description: `Hotel: ${booking.hotel.name}`,
       prefill: {
         name: lead ? `${lead.firstName} ${lead.lastName}` : undefined,
@@ -582,7 +582,7 @@ function PaymentInner() {
 
               <p className="text-[11px] text-ink-muted text-center">
                 Clicking Pay opens Razorpay&apos;s secure checkout. Your
-                payment details are never stored by SpaksTrip.
+                payment details are never stored by ElitesYatra.
               </p>
             </aside>
           </div>

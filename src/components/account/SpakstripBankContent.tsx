@@ -1,5 +1,5 @@
 const BANK_INFO = [
-  { label: "Company Name", value: "Spaks Trip" },
+  { label: "Company Name", value: "ElitesYatra" },
   { label: "Address", value: "728, Phase - V, Udyog Vihar, Gurgaon" },
   { label: "City", value: "Badarpur" },
   { label: "Zip Code", value: "110044" },
@@ -9,7 +9,7 @@ export default function SpakstripBankContent() {
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="border-b border-border px-5 py-3">
-        <h2 className="text-[15px] font-bold text-ink">SpaksTrip Bank Details</h2>
+        <h2 className="text-[15px] font-bold text-ink">ElitesYatra Bank Details</h2>
       </div>
       <div className="p-5 flex flex-col gap-5">
         <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3">

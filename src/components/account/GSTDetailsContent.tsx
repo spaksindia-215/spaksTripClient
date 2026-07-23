@@ -1,12 +1,12 @@
 const GST_INFO = [
-  { label: "Company Name", value: "Spaks Trip" },
+  { label: "Company Name", value: "ElitesYatra" },
   { label: "Premise Code", value: "728" },
   { label: "GSTIN", value: "06AACCT6259K1ZZ" },
   { label: "UIN", value: "NA" },
   { label: "PAN", value: "AACCT6259K" },
-  { label: "Website", value: "www.spakstrip.com" },
+  { label: "Website", value: "www.elitesyatra.com" },
   { label: "TAN", value: "DELT07132G" },
-  { label: "Email ID", value: "spakstrip@gmail.com" },
+  { label: "Email ID", value: "support@elitesyatra.com" },
   { label: "Address Line 1", value: "E 387 Badarpur New Delhi" },
   { label: "Address Line 2", value: "Phase - V, Gurgaon" },
   { label: "GST State (Location)", value: "Delhi" },
@@ -18,7 +18,7 @@ export default function GSTDetailsContent() {
   return (
     <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="border-b border-border px-5 py-3">
-        <h2 className="text-[15px] font-bold text-ink">SpaksTrip GST Details</h2>
+        <h2 className="text-[15px] font-bold text-ink">ElitesYatra GST Details</h2>
       </div>
       <div className="p-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

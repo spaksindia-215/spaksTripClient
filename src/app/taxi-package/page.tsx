@@ -14,7 +14,7 @@ export default function TaxiPackagePage() {
     <div className="min-h-screen bg-white text-ink">
       <ServiceSchema
         serviceType="Taxi Package Booking"
-        url="https://www.spakstrip.com/taxi-package"
+        url="https://www.elitesyatra.com/taxi-package"
         description="Fixed-route multi-day cab packages with transparent fares and verified drivers."
       />
       <Header />

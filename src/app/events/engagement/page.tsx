@@ -5,8 +5,8 @@ import BackToTop from "@/components/landing/BackToTop";
 import EngagementContent from "@/components/events/EngagementContent";
 
 export const metadata: Metadata = {
-  title: "Engagement Planner in Delhi, Noida & Gurgaon | SpaksTrip Events",
-  description: "Heartfelt engagement ceremony planning in Delhi NCR. Personalised ring setups, floral decor, photography, and catering by SpaksTrip Events.",
+  title: "Engagement Planner in Delhi, Noida & Gurgaon | ElitesYatra Events",
+  description: "Heartfelt engagement ceremony planning in Delhi NCR. Personalised ring setups, floral decor, photography, and catering by ElitesYatra Events.",
 };
 
 export default function EngagementPage() {

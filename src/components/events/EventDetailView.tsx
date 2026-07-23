@@ -113,7 +113,7 @@ export default function EventDetailView({ slug }: { slug: string }) {
         order_id: res.payment.orderId,
         amount: res.payment.amount,
         currency: res.payment.currency,
-        name: "SpaksTrip Events",
+        name: "ElitesYatra Events",
         description: event.title,
         theme: { color: "#0E1E3A" },
         modal: {

@@ -14,7 +14,7 @@ export default function NationalTourPackagesPage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Domestic Tour Packages"
-        url="https://www.spakstrip.com/national-tour-packages"
+        url="https://www.elitesyatra.com/national-tour-packages"
         description="Discover amazing domestic tour packages across India's best destinations."
       />
       <Header />

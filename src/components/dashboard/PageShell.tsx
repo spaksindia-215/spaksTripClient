@@ -115,7 +115,7 @@ export default function PageShell({ user, role, nav, children }: Props) {
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
             >
-              <span aria-hidden>←</span> Browse SpaksTrip
+              <span aria-hidden>←</span> Browse ElitesYatra
             </Link>
           </li>
         </ul>

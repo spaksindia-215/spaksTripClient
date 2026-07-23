@@ -106,7 +106,7 @@ export default function ListYourTaxiPage() {
                 Taxi Partner Onboarding
               </p>
               <h1 className="mt-4 text-4xl font-black leading-tight sm:text-5xl">
-                List Your Taxi and start receiving bookings through SpaksTrip
+                List Your Taxi and start receiving bookings through ElitesYatra
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-white/78 sm:text-base">
                 Add your vehicle details, availability, pricing, and documents in one place. This

@@ -16,13 +16,13 @@ const BASE: FlightConfirmationData = {
   totalAmount: 4500,
 };
 
-test("unbranded email (apex / no agent) shows SpaksTrip and no reply-to note", () => {
+test("unbranded email (apex / no agent) shows ElitesYatra and no reply-to note", () => {
   const html = flightConfirmationHtml(BASE);
   const text = flightConfirmationText(BASE);
-  assert.match(html, /SpaksTrip/);
+  assert.match(html, /ElitesYatra/);
   assert.match(html, /Please do not reply to this email/);
   assert.doesNotMatch(html, /Reply to this email for support/);
-  assert.match(text, /^BOOKING CONFIRMED — SpaksTrip$/m);
+  assert.match(text, /^BOOKING CONFIRMED — ElitesYatra$/m);
 });
 
 test("branded email (agent subdomain) shows agent name, logo, and reply-to note", () => {

@@ -5,7 +5,7 @@ import BackToTop from "@/components/landing/BackToTop";
 import BirthdayContent from "@/components/events/BirthdayContent";
 
 export const metadata: Metadata = {
-  title: "Birthday Party Planner in Delhi & Gurgaon | SpaksTrip Events",
+  title: "Birthday Party Planner in Delhi & Gurgaon | ElitesYatra Events",
   description: "Best birthday party organisers in Delhi NCR for kids, teenagers, and adults. Themed setups, entertainment, and full event management.",
 };
 

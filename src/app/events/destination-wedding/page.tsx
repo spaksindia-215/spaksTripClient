@@ -5,8 +5,8 @@ import BackToTop from "@/components/landing/BackToTop";
 import DestinationWeddingContent from "@/components/events/DestinationWeddingContent";
 
 export const metadata: Metadata = {
-  title: "Destination Wedding Planner | Goa, Rajasthan & Beyond | SpaksTrip Events",
-  description: "Plan your dream destination wedding in Goa, Rajasthan, Kerala, or international venues. End-to-end coordination by SpaksTrip Events.",
+  title: "Destination Wedding Planner | Goa, Rajasthan & Beyond | ElitesYatra Events",
+  description: "Plan your dream destination wedding in Goa, Rajasthan, Kerala, or international venues. End-to-end coordination by ElitesYatra Events.",
 };
 
 export default function DestinationWeddingPage() {

@@ -5,8 +5,8 @@ import BackToTop from "@/components/landing/BackToTop";
 import WeddingContent from "@/components/events/WeddingContent";
 
 export const metadata: Metadata = {
-  title: "Wedding Planner in Delhi NCR | SpaksTrip Events",
-  description: "Premier wedding management services in Delhi, Gurgaon, and Noida. Venue, decor, catering, and full coordination by SpaksTrip Events.",
+  title: "Wedding Planner in Delhi NCR | ElitesYatra Events",
+  description: "Premier wedding management services in Delhi, Gurgaon, and Noida. Venue, decor, catering, and full coordination by ElitesYatra Events.",
 };
 
 export default function WeddingPage() {

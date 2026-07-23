@@ -5,15 +5,15 @@ import BackToTop from "@/components/landing/BackToTop";
 import ContactForm from "@/components/contact/ContactForm";
 
 export const metadata: Metadata = {
-  title: "Contact Us | SpaksTrip",
-  description: "Reach out to SpaksTrip's support team. We're available via phone, email, or in person at our Badarpur, New Delhi office.",
+  title: "Contact Us | ElitesYatra",
+  description: "Reach out to ElitesYatra's support team. We're available via phone, email, or in person at our Badarpur, New Delhi office.",
 };
 
 const CONTACT_ITEMS = [
   {
     label: "Email Address",
-    value: "spakstrip@gmail.com",
-    href: "mailto:spakstrip@gmail.com",
+    value: "support@elitesyatra.com",
+    href: "mailto:support@elitesyatra.com",
     icon: (
       <svg viewBox="0 0 24 24" width={22} height={22} fill="currentColor" aria-hidden="true">
         <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm0 2v.5l8 5 8-5V8H4Z" />
@@ -116,7 +116,7 @@ export default function ContactPage() {
             allowFullScreen
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            title="SpaksTrip office location — Badarpur, New Delhi"
+            title="ElitesYatra office location — Badarpur, New Delhi"
           />
         </div>
       </main>

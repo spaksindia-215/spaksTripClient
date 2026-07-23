@@ -16,7 +16,7 @@ export default function CabsPage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Taxi Booking"
-        url="https://www.spakstrip.com/taxi"
+        url="https://www.elitesyatra.com/taxi"
         description="Book cabs for local rides and point-to-point transfers."
       />
       <Header />

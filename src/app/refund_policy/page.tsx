@@ -7,7 +7,7 @@ import { generatePageMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = generatePageMetadata(
   "Refund Policy",
-  "Understand SpaksTrip's refund policy for bookings and cancellations.",
+  "Understand ElitesYatra's refund policy for bookings and cancellations.",
   "/refund_policy"
 );
 

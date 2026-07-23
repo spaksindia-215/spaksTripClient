@@ -241,7 +241,7 @@ function PaymentInner() {
       order_id: orderId,
       amount: totalPaise,
       currency: "INR",
-      name: "SpaksTrip",
+      name: "ElitesYatra",
       description: `Flight: ${from} → ${to}`,
       prefill: {
         name: lead ? `${lead.firstName} ${lead.lastName}` : undefined,
@@ -316,7 +316,7 @@ function PaymentInner() {
                 {buttonLabel}
               </Button>
               <p className="text-[11px] text-ink-muted text-center">
-                Clicking Pay opens Razorpay&apos;s secure checkout. Your payment details are never stored by SpaksTrip.
+                Clicking Pay opens Razorpay&apos;s secure checkout. Your payment details are never stored by ElitesYatra.
               </p>
             </aside>
           </div>

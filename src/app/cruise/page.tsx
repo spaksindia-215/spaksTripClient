@@ -14,7 +14,7 @@ export default function CruisePage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Cruise Booking"
-        url="https://www.spakstrip.com/cruise"
+        url="https://www.elitesyatra.com/cruise"
         description="Explore cruise vacations and island getaways."
       />
       <Header />

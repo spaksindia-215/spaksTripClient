@@ -16,7 +16,7 @@ export default function HotelPage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="Hotel Booking"
-        url="https://www.spakstrip.com/hotel"
+        url="https://www.elitesyatra.com/hotel"
         description="Find and book hotels, resorts, and accommodations online."
       />
       <Header />

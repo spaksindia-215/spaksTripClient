@@ -149,7 +149,7 @@ export default function RefundPolicyLanding() {
 
               <ParagraphBlock>
                 If you&apos;ve done all of this and you still have not received
-                your refund yet, please contact us at spakstrip@gmail.com.
+                your refund yet, please contact us at support@elitesyatra.com.
               </ParagraphBlock>
 
               <SubSectionHeading>Sale items (if applicable)</SubSectionHeading>
@@ -164,7 +164,7 @@ export default function RefundPolicyLanding() {
               <ParagraphBlock>
                 We only replace items if they are defective or damaged. If you
                 need to exchange it for the same item, send us an email at
-                spakstrip@gmail.com and send your item to{" "}
+                support@elitesyatra.com and send your item to{" "}
                 <strong className="font-semibold text-[#0e1e3a]">
                   E-38, Budh Vihar, Badarpur, New Delhi -110044
                 </strong>

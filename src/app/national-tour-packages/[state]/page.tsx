@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const state = slugToState(slug);
   if (!state) return {};
   return {
-    title: `${state} Tour Packages | SpaksTrip`,
+    title: `${state} Tour Packages | ElitesYatra`,
     description: `Discover curated tour, taxi, and holiday packages across ${state}.`,
   };
 }

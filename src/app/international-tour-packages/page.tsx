@@ -14,7 +14,7 @@ export default function InternationalTourPackagesPage() {
     <div className="min-h-screen bg-white text-[#0E1E3A]">
       <ServiceSchema
         serviceType="International Tour Packages"
-        url="https://www.spakstrip.com/international-tour-packages"
+        url="https://www.elitesyatra.com/international-tour-packages"
         description="Explore world-class international tour packages with expert guides."
       />
       <Header />

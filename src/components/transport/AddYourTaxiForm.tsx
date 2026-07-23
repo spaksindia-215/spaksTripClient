@@ -101,7 +101,7 @@ export default function AddYourTaxiForm() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-[var(--ink)] sm:text-3xl">List Your Cab on SpaksTrip</h1>
+        <h1 className="text-2xl font-extrabold text-[var(--ink)] sm:text-3xl">List Your Cab on ElitesYatra</h1>
         <p className="mt-1.5 text-[14px] text-[var(--ink-muted)]">
           Fill in your vehicle and operator details. Our team will verify and onboard you within 48 hours.
         </p>

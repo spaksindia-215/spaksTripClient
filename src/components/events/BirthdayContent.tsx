@@ -38,7 +38,7 @@ export default function BirthdayContent() {
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
                   Birthday parties are the most popular celebrations organised every day across Delhi and Gurgaon.
                   Whether it's a little kid's first birthday, a teenager's milestone, or a surprise party for your
-                  loved one — SpaksTrip Events brings boundless joy and a personal touch to every celebration.
+                  loved one — ElitesYatra Events brings boundless joy and a personal touch to every celebration.
                 </p>
                 <p className="text-sm text-zinc-600 leading-relaxed">
                   We carefully select themes, staff, and setups so that your party becomes the most talked-about
@@ -52,7 +52,7 @@ export default function BirthdayContent() {
                   Why Consider Birthday Event Theming
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
-                  SpaksTrip Events is one of the best birthday party organisers in Delhi and top Birthday Party
+                  ElitesYatra Events is one of the best birthday party organisers in Delhi and top Birthday Party
                   Planners in Gurgaon. We cater to all ages and preferences — kids, teenagers, adults, and
                   corporate birthday celebrations.
                 </p>

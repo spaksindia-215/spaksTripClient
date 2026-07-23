@@ -36,7 +36,7 @@ export default function EngagementContent() {
                   Engagement Planners in Delhi, Noida & Gurgaon
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
-                  An engagement is the beginning of a beautiful journey together. SpaksTrip Events specialises in
+                  An engagement is the beginning of a beautiful journey together. ElitesYatra Events specialises in
                   crafting intimate, heartfelt engagement ceremonies that perfectly capture the joy and emotion of
                   this milestone moment. From a surprise proposal setup to a grand family celebration, we design
                   every detail with love.
@@ -68,7 +68,7 @@ export default function EngagementContent() {
 
               <div>
                 <h2 className="text-2xl font-bold text-[#0E1E3A] mb-3">
-                  Why Trust SpaksTrip Events With Your Engagement
+                  Why Trust ElitesYatra Events With Your Engagement
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
                   The engagement is a once-in-a-lifetime moment. Our team of experienced planners ensures every

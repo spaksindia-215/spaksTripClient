@@ -5,7 +5,6 @@ import BackToTop from "@/components/landing/BackToTop";
 import Destinations from "@/components/landing/Destinations";
 import Footer from "@/components/landing/Footer";
 import Header from "@/components/landing/Header";
-import Testimonials from "@/components/landing/Testimonials";
 import TopHotelDeals from "@/components/landing/TopHotelDeals";
 import WhyChooseUs from "@/components/landing/WhyChooseUs";
 import { generateServiceMetadata } from "@/lib/seo/metadata";
@@ -18,7 +17,7 @@ export default function FlightPage() {
     <div className="min-h-screen bg-surface text-ink">
       <ServiceSchema
         serviceType="Flight Booking"
-        url="https://www.spakstrip.com/flight"
+        url="https://www.elitesyatra.com/flight"
         description="Search and book flights across India and international destinations with best prices."
       />
       <Header />
@@ -28,7 +27,6 @@ export default function FlightPage() {
         <WhyChooseUs />
         <TopHotelDeals />
         <AboutUs />
-        <Testimonials />
       </main>
       <Footer />
       <BackToTop />

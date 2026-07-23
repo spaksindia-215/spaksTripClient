@@ -1,7 +1,7 @@
 /**
- * SpaksTrip Hotel Booking Occupancy Validation
+ * ElitesYatra Hotel Booking Occupancy Validation
  *
- * SpaksTrip Business Limits:
+ * ElitesYatra Business Limits:
  * - Max 6 rooms per booking
  * - Max 8 adults per room
  * - Max 4 children per room

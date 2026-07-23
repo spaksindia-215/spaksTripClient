@@ -70,7 +70,7 @@ export default function Footer() {
                 <div>
                   <p className="text-zinc-500">{t("footer.drop_email")}</p>
                   <p className="font-medium text-[#0E1E3A]">
-                    {isAgent && contactEmail ? contactEmail : "spakstrip@gmail.com"}
+                    {isAgent && contactEmail ? contactEmail : "support@elitesyatra.com"}
                   </p>
                 </div>
               </li>

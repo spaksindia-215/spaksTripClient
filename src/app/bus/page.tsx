@@ -47,7 +47,7 @@ export default function BusPage() {
     <div className="min-h-screen bg-surface-muted">
       <ServiceSchema
         serviceType="Bus Booking"
-        url="https://www.spakstrip.com/bus"
+        url="https://www.elitesyatra.com/bus"
         description="Reserve bus tickets for comfortable intercity travel."
       />
       <Header />

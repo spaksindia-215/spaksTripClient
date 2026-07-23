@@ -37,7 +37,7 @@ export default function CocktailContent() {
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
                   A cocktail party is the perfect blend of sophistication and relaxed social interaction.
-                  SpaksTrip Events designs cocktail parties that leave guests thoroughly impressed — from
+                  ElitesYatra Events designs cocktail parties that leave guests thoroughly impressed — from
                   intimate rooftop mixers for 20 guests to large-scale social evenings for 200+.
                 </p>
                 <p className="text-sm text-zinc-600 leading-relaxed">
@@ -66,7 +66,7 @@ export default function CocktailContent() {
 
               <div>
                 <h2 className="text-2xl font-bold text-[#0E1E3A] mb-3">
-                  Why Choose SpaksTrip Events For Your Cocktail Mixer
+                  Why Choose ElitesYatra Events For Your Cocktail Mixer
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
                   Our cocktail party setups are known for their stunning ambiance, curated bar menus, and

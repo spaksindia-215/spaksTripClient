@@ -578,10 +578,10 @@ const STANDARD_CANCELLATION = [
   "No refund if cancelled within 7 days before the departure.",
 ];
 
-const STANDARD_TERMS = `The website owner, along with its subsidiaries and affiliates ("Spakstrip", "we", "us", or "our"), provides the information contained on this website to visitors ("you", "your") subject to the terms and conditions set out in this document, our Privacy Policy, and any other relevant notices applicable to specific sections of the website.
+const STANDARD_TERMS = `The website owner, along with its subsidiaries and affiliates ("ElitesYatra", "we", "us", or "our"), provides the information contained on this website to visitors ("you", "your") subject to the terms and conditions set out in this document, our Privacy Policy, and any other relevant notices applicable to specific sections of the website.
 
 1. Acceptance of Terms
-By accessing and using this website, you agree to be bound by these terms and conditions. If you do not agree with any part of these terms, please do not use our website. The term "Spakstrip" refers to the owner of the website whose registered office is: E-38, Budh Vihar, Badarpur, New Delhi – 110044, India
+By accessing and using this website, you agree to be bound by these terms and conditions. If you do not agree with any part of these terms, please do not use our website. The term "ElitesYatra" refers to the owner of the website whose registered office is: E-38, Budh Vihar, Badarpur, New Delhi – 110044, India
 
 2. Use of the Website
 • The content on this website is for your general information and use only and is subject to change without notice.
@@ -590,13 +590,13 @@ By accessing and using this website, you agree to be bound by these terms and co
 
 3. Intellectual Property
 • This website contains material which is owned or licensed to us. This includes, but is not limited to, the design, layout, graphics, and appearance. Reproduction is prohibited other than in accordance with the copyright notice.
-• All trademarks reproduced in this website, which are not the property of or licensed to Spakstrip, are acknowledged.
+• All trademarks reproduced in this website, which are not the property of or licensed to ElitesYatra, are acknowledged.
 
 4. External Links
 • This website may include links to other websites for your convenience. They do not signify endorsement, and we have no responsibility for the content of linked websites.
 
-5. Linking to Spakstrip
-• You may not create a link to this website from another website without prior written consent from Spakstrip.`;
+5. Linking to ElitesYatra
+• You may not create a link to this website from another website without prior written consent from ElitesYatra.`;
 
 // ------------------------------------------------------------------
 // Calendar dates for Leh Ladakh packages (ID 1)

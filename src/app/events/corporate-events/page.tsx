@@ -5,8 +5,8 @@ import BackToTop from "@/components/landing/BackToTop";
 import CorporateContent from "@/components/events/CorporateContent";
 
 export const metadata: Metadata = {
-  title: "Corporate Event Management in Delhi NCR | SpaksTrip Events",
-  description: "Professional corporate event planning in Delhi, Gurgaon, and Noida. Conferences, team building, award nights, and product launches by SpaksTrip Events.",
+  title: "Corporate Event Management in Delhi NCR | ElitesYatra Events",
+  description: "Professional corporate event planning in Delhi, Gurgaon, and Noida. Conferences, team building, award nights, and product launches by ElitesYatra Events.",
 };
 
 export default function CorporateEventsPage() {

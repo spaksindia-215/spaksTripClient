@@ -449,7 +449,7 @@ export default function UnifiedPartnerVerification({ onVerificationComplete, isE
                 className="mt-1"
               />
               <span className="text-sm text-brand-950">
-                I confirm that all the information provided above is accurate and I am authorized to represent this business on the SpaksTrip platform. *
+                I confirm that all the information provided above is accurate and I am authorized to represent this business on the ElitesYatra platform. *
               </span>
             </label>
             {errors.declaration && (

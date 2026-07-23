@@ -19,7 +19,7 @@ const overviewParagraphs: Paragraph[] = [
     <strong>OYO PRODUCTS AND SERVICES PRIVATE LIMITED</strong>. Throughout the
     site, the terms &ldquo;we&rdquo;, &ldquo;us&rdquo; and &ldquo;our&rdquo;
     refer to <strong>OYO PRODUCTS AND SERVICES PRIVATE LIMITED</strong>.
-    Spakstrip.com <strong>OYO PRODUCTS AND SERVICES PRIVATE LIMITED</strong>{" "}
+    ElitesYatra.com <strong>OYO PRODUCTS AND SERVICES PRIVATE LIMITED</strong>{" "}
     offers this website, including all information, tools and services
     available from this site to you, the user, conditioned upon your acceptance
     of all terms, conditions, policies and notices stated here.
@@ -252,10 +252,10 @@ const sections: TermsSection[] = [
       <>
         Questions about the Terms of Service should be sent to us at{" "}
         <a
-          href="mailto:spakstrip@gmail.com"
+          href="mailto:support@elitesyatra.com"
           className="text-[#E0382E] transition-colors hover:text-[#c73027]"
         >
-          spakstrip@gmail.com.
+          support@elitesyatra.com.
         </a>
       </>,
     ],

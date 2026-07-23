@@ -24,7 +24,7 @@ export default function AgentApiPage() {
         </div>
         <p className="mt-2 text-[13px] text-ink-muted">
           Programmatic access for B2B partners is on the way. You&apos;ll be able to generate API
-          keys, manage access tokens, and integrate SpaksTrip booking directly into your systems.
+          keys, manage access tokens, and integrate ElitesYatra booking directly into your systems.
         </p>
 
         {/* Locked preview */}

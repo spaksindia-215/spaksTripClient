@@ -619,7 +619,7 @@ export default function SuperadminPage() {
       <main className="grid min-h-screen place-items-center bg-[#0E1E3A] px-4">
         <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F6A441]">
-            SpaksTrip
+            ElitesYatra
           </p>
           <h1 className="mt-2 text-2xl font-extrabold text-[#0E1E3A]">Superadmin</h1>
           <p className="mt-1 text-[13px] text-ink-muted">
@@ -650,7 +650,7 @@ export default function SuperadminPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F6A441]">
-              SpaksTrip
+              ElitesYatra
             </p>
             <h1 className="text-xl font-bold text-white">Superadmin Panel</h1>
           </div>

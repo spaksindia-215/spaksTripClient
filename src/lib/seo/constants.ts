@@ -1,11 +1,11 @@
 export const SITE_CONFIG = {
-  name: "Spaks Trip",
-  title: "SpaksTrip — Flights, Hotels, Holidays & More",
+  name: "ElitesYatra",
+  title: "ElitesYatra — Flights, Hotels, Holidays & More",
   description:
-    "Book flights, hotels, holiday packages, visas and more. Powered by SpaksTrip.",
-  url: "https://www.spakstrip.com",
+    "Book flights, hotels, holiday packages, visas and more. Powered by ElitesYatra.",
+  url: "https://www.elitesyatra.com",
   phone: "+91-870 045 8818",
-  email: "spakstrip@gmail.com",
+  email: "support@elitesyatra.com",
   address: {
     streetAddress: "E-38, Budh Vihar, Badarpur, New Delhi 110044",
     locality: "New Delhi",
@@ -15,11 +15,11 @@ export const SITE_CONFIG = {
   },
   openingHours: "Mo-Sa 09:00-18:00",
   social: {
-    facebook: "https://www.facebook.com/spakstrip",
-    instagram: "https://www.instagram.com/spaks_trip/",
-    linkedin: "https://www.linkedin.com/in/oyo-tours/",
+    facebook: "https://www.facebook.com/elitesyatra",
+    instagram: "https://www.instagram.com/elitesyatra/",
+    linkedin: "https://www.linkedin.com/company/elitesyatra/",
   },
-  logo: "https://www.spakstrip.com/logo.png",
+  logo: "https://www.elitesyatra.com/logo.png",
   googleSearchConsoleVerification: "google082eae1f525da4ca.html",
 };
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Page Not Found — SpaksTrip",
+  title: "Page Not Found — ElitesYatra",
   description: "The page you are looking for does not exist.",
 };
 
@@ -10,8 +10,8 @@ export default function NotFound() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--surface-muted)] px-4 py-20 text-center">
       {/* Logo */}
-      <Link href="/" aria-label="SpaksTrip home" className="mb-10 block">
-        <img src="/logo.png" alt="SpaksTrip" className="h-14 w-14 object-contain" />
+      <Link href="/" aria-label="ElitesYatra home" className="mb-10 block">
+        <img src="/logo.png" alt="ElitesYatra" className="h-14 w-14 object-contain" />
       </Link>
 
       {/* Illustration number */}

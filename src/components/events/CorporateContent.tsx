@@ -36,7 +36,7 @@ export default function CorporateContent() {
                   Corporate Event Management Services in Delhi & NCR
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
-                  SpaksTrip Events is a trusted corporate event management company serving businesses across
+                  ElitesYatra Events is a trusted corporate event management company serving businesses across
                   Delhi, Gurgaon, Noida, and the wider NCR region. From high-profile conferences and product
                   launches to team-building retreats and award ceremonies, we deliver world-class corporate events
                   that impress clients and inspire teams.
@@ -67,7 +67,7 @@ export default function CorporateContent() {
 
               <div>
                 <h2 className="text-2xl font-bold text-[#0E1E3A] mb-3">
-                  Why Choose SpaksTrip Events For Corporate Events
+                  Why Choose ElitesYatra Events For Corporate Events
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
                   We have successfully executed corporate events for startups, mid-size companies, and Fortune

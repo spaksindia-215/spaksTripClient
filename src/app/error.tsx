@@ -17,8 +17,8 @@ export default function Error({
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-[var(--surface-muted)] px-4 py-20 text-center">
       {/* Logo */}
-      <Link href="/" aria-label="SpaksTrip home" className="mb-10 block">
-        <img src="/logo.png" alt="SpaksTrip" className="h-14 w-14 object-contain" />
+      <Link href="/" aria-label="ElitesYatra home" className="mb-10 block">
+        <img src="/logo.png" alt="ElitesYatra" className="h-14 w-14 object-contain" />
       </Link>
 
       {/* Icon */}

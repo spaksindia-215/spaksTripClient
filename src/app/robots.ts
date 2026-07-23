@@ -20,6 +20,6 @@ export default function robots(): MetadataRoute.Robots {
       ],
       allow: ["/"],
     },
-    sitemap: "https://www.spakstrip.com/sitemap.xml",
+    sitemap: "https://www.elitesyatra.com/sitemap.xml",
   };
 }

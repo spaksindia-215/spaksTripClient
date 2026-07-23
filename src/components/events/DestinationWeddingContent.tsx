@@ -37,7 +37,7 @@ export default function DestinationWeddingContent() {
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
                   A destination wedding transforms your special day into a breathtaking travel experience for you
-                  and your guests. SpaksTrip Events specialises in curating destination weddings at India's most
+                  and your guests. ElitesYatra Events specialises in curating destination weddings at India's most
                   iconic locations — pristine Goa beaches, grand Rajasthan palaces, serene Kerala backwaters, and
                   exotic international venues.
                 </p>
@@ -68,7 +68,7 @@ export default function DestinationWeddingContent() {
 
               <div>
                 <h2 className="text-2xl font-bold text-[#0E1E3A] mb-3">
-                  Why Choose SpaksTrip Events For Your Destination Wedding
+                  Why Choose ElitesYatra Events For Your Destination Wedding
                 </h2>
                 <p className="text-sm text-zinc-600 leading-relaxed mb-3">
                   Planning a wedding away from home requires exceptional coordination across vendors, venues, and

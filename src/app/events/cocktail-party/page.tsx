@@ -5,7 +5,7 @@ import BackToTop from "@/components/landing/BackToTop";
 import CocktailContent from "@/components/events/CocktailContent";
 
 export const metadata: Metadata = {
-  title: "Cocktail Party Planner in Delhi & NCR | SpaksTrip Events",
+  title: "Cocktail Party Planner in Delhi & NCR | ElitesYatra Events",
   description: "Elegant cocktail party planning in Delhi, Gurgaon, and Noida. Rooftop setups, premium bar, live music, and full event management.",
 };
 

@@ -3,7 +3,7 @@ import { rateLimit } from "@/lib/rateLimit";
 import { internalApiHeaders } from "@/lib/server/internalApi";
 
 // Configurable via env so staging domains work without a code change.
-const APEX    = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "spakstrip.com";
+const APEX    = process.env.NEXT_PUBLIC_APEX_DOMAIN ?? "elitesyatra.com";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE   ?? "http://localhost:4000";
 
 interface AgentBrandingConfig {
